@@ -19,7 +19,6 @@ struct LocationDetailView: View {
                     hourlyCard(detail)
                     dailyCard(detail)
                     conditionsGrid(detail)
-                    AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
                 } else if let errorMessage {
                     ContentUnavailableView("Forecast unavailable", systemImage: "icloud.slash", description: Text(errorMessage))
                 } else {
@@ -30,6 +29,12 @@ struct LocationDetailView: View {
             .padding(16)
         }
         .background(Theme.background)
+        .safeAreaInset(edge: .bottom) {
+            if let detail {
+                AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
+                    .pinnedToBottom()
+            }
+        }
         .navigationTitle(target.name)
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }

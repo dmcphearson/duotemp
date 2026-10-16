@@ -86,6 +86,20 @@ struct AttributionFooter: View {
     }
 }
 
+extension View {
+    /// Styles the footer as a bar pinned above the home indicator; content scrolls behind it.
+    func pinnedToBottom() -> some View {
+        padding(.horizontal, 20)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.background.opacity(0.96))
+            .overlay(alignment: .top) {
+                Rectangle().fill(Theme.secondary.opacity(0.15)).frame(height: 1)
+            }
+    }
+}
+
 extension AttributionFooter {
     /// The list screen shows only snapshot data, which comes entirely from the primary source.
     static func listSources(primary: WeatherSource) -> [ForecastDetail.Field: WeatherSource] {

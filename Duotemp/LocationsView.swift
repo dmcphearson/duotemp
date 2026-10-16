@@ -47,15 +47,14 @@ struct LocationsView: View {
                     Text("Long-press your Home Screen, add the duotemp widget, then tap it while editing to choose a location.")
                 }
                 .listRowBackground(Theme.card)
-
-                Section {
-                    AttributionFooter(sources: AttributionFooter.listSources(primary: model.source))
-                }
-                .listRowBackground(Color.clear)
             }
             .listRowSpacing(10)
             .scrollContentBackground(.hidden)
             .background(Theme.background)
+            .safeAreaInset(edge: .bottom) {
+                AttributionFooter(sources: AttributionFooter.listSources(primary: model.source))
+                    .pinnedToBottom()
+            }
             .navigationTitle("Locations")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
