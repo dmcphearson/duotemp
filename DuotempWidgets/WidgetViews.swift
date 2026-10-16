@@ -1,0 +1,273 @@
+import SwiftUI
+import WidgetKit
+
+struct WeatherWidgetView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: WeatherEntry
+
+    var body: some View {
+        if let snapshot = entry.snapshot {
+            let now = snapshot.now(at: entry.date)
+            switch family {
+            case .systemMedium:
+                MediumView(entry: entry, snapshot: snapshot, now: now)
+            case .accessoryRectangular:
+                RectangularView(entry: entry, snapshot: snapshot, now: now)
+            case .accessoryCircular:
+                CircularView(lead: entry.lead, now: now)
+            case .accessoryInline:
+                Label("\(now.temperature.labelledPair(lead: entry.lead)) · Feels \(now.feelsLike.degrees(entry.lead))", systemImage: now.symbolName)
+                    .symbolVariant(.fill)
+            default:
+                SmallView(entry: entry, snapshot: snapshot, now: now)
+            }
+        } else {
+            UnavailableView(isCurrentLocation: entry.isCurrentLocation)
+        }
+    }
+}
+
+struct WidgetBackground: View {
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        switch family {
+        case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge: Theme.card
+        case .accessoryCircular: AccessoryWidgetBackground()
+        default: Color.clear
+        }
+    }
+}
+
+// MARK: - Home Screen
+
+private struct SmallView: View {
+    let entry: WeatherEntry
+    let snapshot: WeatherSnapshot
+    let now: WeatherSnapshot.Hour
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 4) {
+                PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
+                Spacer(minLength: 4)
+                UpdatedTime(date: snapshot.fetchedAt)
+            }
+            Spacer(minLength: 0)
+            BigTemps(temperature: now.temperature, lead: entry.lead)
+            Spacer(minLength: 0)
+            ConditionLabel(hour: now)
+            FeelsLike(temperature: now.feelsLike, lead: entry.lead)
+                .padding(.top, 2)
+            HighLow(snapshot: snapshot, lead: entry.lead)
+        }
+        .foregroundStyle(.white)
+    }
+}
+
+private struct MediumView: View {
+    let entry: WeatherEntry
+    let snapshot: WeatherSnapshot
+    let now: WeatherSnapshot.Hour
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
+                    BigTemps(temperature: now.temperature, lead: entry.lead, leadSize: 40, trailSize: 24)
+                }
+                Spacer(minLength: 0)
+                VStack(alignment: .trailing, spacing: 2) {
+                    ConditionLabel(hour: now, size: 14)
+                    HighLow(snapshot: snapshot, lead: entry.lead)
+                    FeelsLike(temperature: now.feelsLike, lead: entry.lead)
+                    UpdatedTime(date: snapshot.fetchedAt)
+                }
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 0) {
+                ForEach(snapshot.upcoming(after: entry.date), id: \.date) { hour in
+                    HourColumn(hour: hour, lead: entry.lead, timeZone: snapshot.timeZone)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .foregroundStyle(.white)
+    }
+}
+
+private struct HourColumn: View {
+    let hour: WeatherSnapshot.Hour
+    let lead: LeadUnit
+    let timeZone: TimeZone
+
+    var body: some View {
+        VStack(spacing: 3) {
+            Text(hour.date, format: Self.hourStyle(timeZone))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.secondary)
+            WeatherSymbol(name: hour.symbolName, size: 18)
+                .frame(height: 22)
+            Text(hour.temperature.degrees(lead))
+                .font(.system(size: 15, weight: .semibold))
+            Text(hour.temperature.degrees(lead.other))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.secondary)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Locale-appropriate hour ("22" in Ireland, "10 PM" in the US) in the location's time zone.
+    private static func hourStyle(_ timeZone: TimeZone) -> Date.FormatStyle {
+        var style = Date.FormatStyle.dateTime.hour()
+        style.timeZone = timeZone
+        return style
+    }
+}
+
+// MARK: - Lock Screen
+
+private struct RectangularView: View {
+    let entry: WeatherEntry
+    let snapshot: WeatherSnapshot
+    let now: WeatherSnapshot.Hour
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 3) {
+                if entry.isCurrentLocation {
+                    Image(systemName: "location.fill").font(.system(size: 9, weight: .semibold))
+                }
+                Text(snapshot.placeName).font(.headline).lineLimit(1)
+            }
+            Text(now.temperature.labelledPair(lead: entry.lead))
+                .font(.system(size: 20, weight: .semibold))
+            Text("Feels \(now.feelsLike.compactPair(lead: entry.lead))")
+                .font(.caption)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct CircularView: View {
+    let lead: LeadUnit
+    let now: WeatherSnapshot.Hour
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Text(now.temperature.labelled(lead))
+                .font(.system(size: 17, weight: .bold))
+            Text(now.temperature.labelled(lead.other))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .minimumScaleFactor(0.7)
+        .widgetAccentable()
+    }
+}
+
+// MARK: - Pieces
+
+private struct PlaceName: View {
+    let name: String
+    let isCurrent: Bool
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(name)
+                .font(.system(size: 15, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            if isCurrent {
+                Image(systemName: "location.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                    .accessibilityLabel("Current location")
+            }
+        }
+    }
+}
+
+/// When the forecast was fetched; MET's terms ask apps to show it.
+private struct UpdatedTime: View {
+    let date: Date
+
+    var body: some View {
+        Text(date, format: .dateTime.hour().minute())
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(Theme.secondary)
+            .accessibilityLabel(Text("Updated \(date, format: .dateTime.hour().minute())"))
+    }
+}
+
+private struct BigTemps: View {
+    let temperature: DualTemp
+    let lead: LeadUnit
+    var leadSize: CGFloat = 42
+    var trailSize: CGFloat = 26
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            TemperatureText(temperature: temperature, unit: lead, size: leadSize)
+            TemperatureText(temperature: temperature, unit: lead.other, size: trailSize)
+                .foregroundStyle(Theme.secondary)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+}
+
+private struct ConditionLabel: View {
+    let hour: WeatherSnapshot.Hour
+    var size: CGFloat = 13
+
+    var body: some View {
+        HStack(spacing: 5) {
+            WeatherSymbol(name: hour.symbolName, size: size + 3)
+            Text(hour.condition)
+                .font(.system(size: size, weight: .semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+    }
+}
+
+private struct FeelsLike: View {
+    let temperature: DualTemp
+    let lead: LeadUnit
+
+    var body: some View {
+        Text("Feels \(temperature.pair(lead: lead))")
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(Theme.accent)
+            .lineLimit(1)
+    }
+}
+
+private struct HighLow: View {
+    let snapshot: WeatherSnapshot
+    let lead: LeadUnit
+
+    var body: some View {
+        Text("H \(snapshot.high.compactPair(lead: lead))  L \(snapshot.low.compactPair(lead: lead))")
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.secondary)
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+}
+
+private struct UnavailableView: View {
+    let isCurrentLocation: Bool
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(systemName: isCurrentLocation ? "location.slash" : "icloud.slash")
+                .font(.title3)
+            Text(isCurrentLocation ? "Open duotemp to allow location" : "Weather unavailable")
+                .font(.caption)
+                .multilineTextAlignment(.center)
+        }
+        .foregroundStyle(Theme.secondary)
+    }
+}

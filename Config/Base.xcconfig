@@ -1,0 +1,11 @@
+// Signing and identifiers shared by every target.
+// Forks: copy these keys into Config/Local.xcconfig (gitignored) with your own values.
+
+BUNDLE_ID_PREFIX = me.mcphearson
+DEVELOPMENT_TEAM = J479S78JUN
+
+// MET Norway API base. Switch to the caching proxy before App Store release.
+// "/$()/" stops xcconfig treating "//" as a comment.
+MET_BASE_URL = https:/$()/api.met.no/weatherapi
+
+#include? "Local.xcconfig"

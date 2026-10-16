@@ -1,0 +1,99 @@
+import Foundation
+
+/// The parts of a Locationforecast 2.0 "complete" response that duotemp uses.
+/// Decode with `.convertFromSnakeCase` and `.iso8601` dates.
+struct METForecast: Decodable, Sendable {
+    struct Properties: Decodable, Sendable {
+        let timeseries: [Step]
+    }
+
+    struct Step: Decodable, Sendable {
+        let time: Date
+        let data: StepData
+    }
+
+    struct StepData: Decodable, Sendable {
+        let instant: Instant
+        let next1Hours: Period?
+    }
+
+    struct Instant: Decodable, Sendable {
+        let details: Details
+    }
+
+    struct Details: Decodable, Sendable {
+        let airTemperature: Double
+        let apparentAirTemperature: Double?
+    }
+
+    struct Period: Decodable, Sendable {
+        let summary: Summary
+    }
+
+    struct Summary: Decodable, Sendable {
+        let symbolCode: String
+    }
+
+    let properties: Properties
+
+    static func decode(_ data: Data) throws -> METForecast {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(METForecast.self, from: data)
+    }
+
+    func snapshot(placeName: String, timeZoneID: String?, fetchedAt now: Date) throws -> WeatherSnapshot {
+        let steps = properties.timeseries.sorted { $0.time < $1.time }
+
+        // Hourly steps carry next_1_hours; the long-range tail is 6-hourly and is dropped.
+        let hourly: [WeatherSnapshot.Hour] = steps.compactMap { step in
+            guard let code = step.data.next1Hours?.summary.symbolCode else { return nil }
+            let symbol = METSymbol(code: code)
+            let details = step.data.instant.details
+            return WeatherSnapshot.Hour(
+                date: step.time,
+                temperature: DualTemp(celsius: details.airTemperature),
+                feelsLike: DualTemp(celsius: details.apparentAirTemperature ?? details.airTemperature),
+                condition: symbol.condition,
+                symbolName: symbol.symbolName
+            )
+        }
+        guard let current = hourly.last(where: { $0.date <= now }) ?? hourly.first else {
+            throw METError.noData
+        }
+
+        // High and low over the rest of today in the location's time zone.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZoneID.flatMap(TimeZone.init(identifier:)) ?? .current
+        let today = steps
+            .filter { $0.time >= current.date && calendar.isDate($0.time, inSameDayAs: now) }
+            .map(\.data.instant.details.airTemperature)
+        let temperatures = today.isEmpty ? [current.temperature.celsius] : today
+
+        return WeatherSnapshot(
+            placeName: placeName,
+            timeZoneID: timeZoneID,
+            source: .yr,
+            fetchedAt: now,
+            current: current,
+            high: DualTemp(celsius: temperatures.max() ?? current.temperature.celsius),
+            low: DualTemp(celsius: temperatures.min() ?? current.temperature.celsius),
+            hours: hourly.filter { $0.date > current.date }
+        )
+    }
+}
+
+enum METError: LocalizedError {
+    case rateLimited
+    case http(Int)
+    case noData
+
+    var errorDescription: String? {
+        switch self {
+        case .rateLimited: "MET Norway is limiting requests. Try again later."
+        case .http(let status): "MET Norway returned HTTP \(status)."
+        case .noData: "MET Norway returned no hourly forecast."
+        }
+    }
+}
