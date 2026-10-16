@@ -1,0 +1,254 @@
+import SwiftUI
+
+struct LocationDetailView: View {
+    let target: DetailTarget
+    let model: LocationsModel
+
+    @State private var detail: ForecastDetail?
+    @State private var errorMessage: String?
+
+    private var lead: LeadUnit { model.lead }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
+                    header(snapshot)
+                }
+                if let detail {
+                    hourlyCard(detail)
+                    dailyCard(detail)
+                    conditionsGrid(detail)
+                    AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
+                } else if let errorMessage {
+                    ContentUnavailableView("Forecast unavailable", systemImage: "icloud.slash", description: Text(errorMessage))
+                } else {
+                    ProgressView()
+                        .padding(.top, 40)
+                }
+            }
+            .padding(16)
+        }
+        .background(Theme.background)
+        .navigationTitle(target.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await load() }
+        .refreshable { await load() }
+    }
+
+    private func load() async {
+        do {
+            detail = try await model.detail(for: target)
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    // MARK: - Sections
+
+    private func header(_ snapshot: WeatherSnapshot) -> some View {
+        let now = snapshot.now(at: .now)
+        return VStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                TemperatureText(temperature: now.temperature, unit: lead, size: 64)
+                TemperatureText(temperature: now.temperature, unit: lead.other, size: 34)
+                    .foregroundStyle(Theme.secondary)
+            }
+            HStack(spacing: 6) {
+                WeatherSymbol(name: now.symbolName, size: 18)
+                Text(now.condition)
+            }
+            .font(.title3.weight(.semibold))
+            Text("Feels \(now.feelsLike.pair(lead: lead))")
+                .font(.headline)
+                .foregroundStyle(Theme.accent)
+            Text("H \(snapshot.high.pair(lead: lead))   L \(snapshot.low.pair(lead: lead))")
+                .font(.subheadline)
+                .foregroundStyle(Theme.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+
+    private func hourlyCard(_ detail: ForecastDetail) -> some View {
+        Card(title: "Next 48 hours") {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 18) {
+                    ForEach(Array(detail.hours.enumerated()), id: \.element.id) { index, hour in
+                        VStack(spacing: 6) {
+                            Text(index == 0 ? "Now" : hour.date.formatted(hourStyle(detail.snapshot.timeZone)))
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Theme.secondary)
+                            WeatherSymbol(name: hour.symbolName, size: 20)
+                                .frame(height: 24)
+                            Text(hour.temperature.degrees(lead))
+                                .font(.headline)
+                            Text(hour.temperature.degrees(lead.other))
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.secondary)
+                            RainLabel(chance: hour.precipitationChance, millimetres: hour.precipitationMM, lead: lead)
+                        }
+                        .frame(minWidth: 40)
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+        }
+    }
+
+    private func dailyCard(_ detail: ForecastDetail) -> some View {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = detail.snapshot.timeZone
+        return Card(title: "\(detail.days.count)-day forecast") {
+            VStack(spacing: 0) {
+                ForEach(Array(detail.days.enumerated()), id: \.element.id) { index, day in
+                    if index > 0 { Divider().overlay(Theme.secondary.opacity(0.2)) }
+                    HStack(spacing: 10) {
+                        Text(calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone)))
+                            .font(.body.weight(.semibold))
+                            .frame(width: 56, alignment: .leading)
+                        WeatherSymbol(name: day.symbolName, size: 18)
+                            .frame(width: 28)
+                        RainLabel(chance: day.precipitationChance, millimetres: day.precipitationMM, lead: lead, compact: true)
+                            .frame(width: 64, alignment: .leading)
+                        Spacer(minLength: 0)
+                        Text("L \(day.low.compactPair(lead: lead))")
+                            .foregroundStyle(Theme.secondary)
+                        Text("H \(day.high.compactPair(lead: lead))")
+                            .fontWeight(.semibold)
+                    }
+                    .font(.subheadline)
+                    .padding(.vertical, 10)
+                    .accessibilityElement(children: .combine)
+                }
+            }
+        }
+    }
+
+    private func conditionsGrid(_ detail: ForecastDetail) -> some View {
+        let c = detail.conditions
+        let timeZone = detail.snapshot.timeZone
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            if let speed = c.windSpeed {
+                Tile(title: "Wind", value: Units.wind(speed, lead: lead), caption: windCaption(c))
+            }
+            if let humidity = c.humidity {
+                Tile(title: "Humidity", value: Units.percent(humidity), caption: c.dewPoint.map { "Dew point \($0.pair(lead: lead))" })
+            }
+            if let uv = c.uvIndex {
+                Tile(title: "UV index", value: "\(uv)", caption: detail.sources[.uv] == .yr ? "Clear-sky maximum" : nil)
+            }
+            if let pressure = c.pressure {
+                Tile(title: "Pressure", value: Units.pressure(pressure, lead: lead), caption: nil)
+            }
+            if let visibility = c.visibility {
+                Tile(title: "Visibility", value: Units.visibility(visibility, lead: lead), caption: nil)
+            }
+            if c.sunrise != nil || c.sunset != nil {
+                Tile(
+                    title: "Sunrise and sunset",
+                    value: [c.sunrise, c.sunset].map { $0.map { $0.formatted(timeStyle(timeZone)) } ?? "—" }.joined(separator: " · "),
+                    caption: nil
+                )
+            }
+        }
+    }
+
+    private func windCaption(_ c: ForecastDetail.Conditions) -> String? {
+        var parts: [String] = []
+        if let direction = c.windDirection { parts.append("From \(Units.compass(direction))") }
+        if let gust = c.windGust { parts.append("Gusts \(Units.wind(gust, lead: lead))") }
+        return parts.isEmpty ? nil : parts.joined(separator: "\n")
+    }
+
+    // MARK: - Formatting in the location's time zone
+
+    private func hourStyle(_ timeZone: TimeZone) -> Date.FormatStyle {
+        var style = Date.FormatStyle.dateTime.hour()
+        style.timeZone = timeZone
+        return style
+    }
+
+    private func weekdayStyle(_ timeZone: TimeZone) -> Date.FormatStyle {
+        var style = Date.FormatStyle.dateTime.weekday(.abbreviated)
+        style.timeZone = timeZone
+        return style
+    }
+
+    private func timeStyle(_ timeZone: TimeZone) -> Date.FormatStyle {
+        var style = Date.FormatStyle(date: .omitted, time: .shortened)
+        style.timeZone = timeZone
+        return style
+    }
+}
+
+// MARK: - Pieces
+
+private struct Card<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.secondary)
+            content
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20))
+    }
+}
+
+private struct Tile: View {
+    let title: String
+    let value: String
+    let caption: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Theme.secondary)
+            Text(value)
+                .font(.headline)
+                .minimumScaleFactor(0.8)
+            if let caption {
+                Text(caption)
+                    .font(.caption)
+                    .foregroundStyle(Theme.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Chance of rain when known, else the amount; hidden when it's dry.
+private struct RainLabel: View {
+    let chance: Double?
+    let millimetres: Double?
+    let lead: LeadUnit
+    var compact = false
+
+    private static let rainBlue = Color(hex: 0x8FC3E8)
+
+    var body: some View {
+        VStack(spacing: 2) {
+            if let chance, chance >= 0.1 {
+                Text(Units.percent(chance))
+            }
+            if let millimetres, millimetres >= 0.1, !(compact && (chance ?? 0) >= 0.1) {
+                Text(Units.rain(millimetres, lead: lead))
+            }
+        }
+        .font(.caption2.weight(.semibold))
+        .foregroundStyle(Self.rainBlue)
+        .frame(minHeight: compact ? nil : 28, alignment: .top)
+    }
+}

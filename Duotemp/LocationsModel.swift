@@ -83,6 +83,26 @@ final class LocationsModel {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// What the detail screen needs to load a row: "current" uses the last fix.
+    func target(for key: String) -> DetailTarget? {
+        if key == SharedStore.currentLocationKey {
+            guard let here = SharedStore.lastKnownCoordinate else { return nil }
+            let snapshot = snapshots[key]
+            return DetailTarget(key: key, name: snapshot?.placeName ?? "My Location", latitude: here.latitude, longitude: here.longitude, timeZoneID: snapshot?.timeZoneID)
+        }
+        guard let saved = locations.first(where: { $0.id.uuidString == key }) else { return nil }
+        return DetailTarget(key: key, name: saved.name, latitude: saved.latitude, longitude: saved.longitude, timeZoneID: saved.timeZoneID)
+    }
+
+    /// Loads the detail forecast and refreshes the row's cached snapshot with it.
+    func detail(for target: DetailTarget) async throws -> ForecastDetail {
+        var detail = try await DetailClient.detail(primary: source, target: target)
+        detail.snapshot = SharedStore.cache(detail.snapshot, key: target.key)
+        snapshots[target.key] = detail.snapshot
+        failed.remove(target.key)
+        return detail
+    }
+
     /// A fresh fix, else the last known one (for example when GPS times out indoors).
     private func currentCoordinate() async -> Coordinate? {
         do {

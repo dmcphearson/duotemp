@@ -11,4 +11,12 @@ enum WeatherSource: String, Codable, CaseIterable, Sendable {
         case .apple: "Apple Weather"
         }
     }
+
+    /// Who to credit for data from this source.
+    var creditName: String {
+        switch self {
+        case .yr: "MET Norway"
+        case .apple: "Apple Weather"
+        }
+    }
 }

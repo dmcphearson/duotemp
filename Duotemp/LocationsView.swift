@@ -31,13 +31,15 @@ struct LocationsView: View {
                     currentLocationRow
                     ForEach(model.locations) { location in
                         let key = location.id.uuidString
-                        LocationRow(
-                            name: location.name,
-                            tag: nil,
-                            snapshot: model.snapshots[key],
-                            failed: model.failed.contains(key),
-                            lead: model.lead
-                        )
+                        NavigationLink(value: key) {
+                            LocationRow(
+                                name: location.name,
+                                tag: nil,
+                                snapshot: model.snapshots[key],
+                                failed: model.failed.contains(key),
+                                lead: model.lead
+                            )
+                        }
                     }
                     .onDelete(perform: model.delete)
                     .onMove(perform: model.move)
@@ -47,7 +49,7 @@ struct LocationsView: View {
                 .listRowBackground(Theme.card)
 
                 Section {
-                    AttributionView(source: model.source)
+                    AttributionFooter(sources: AttributionFooter.listSources(primary: model.source))
                 }
                 .listRowBackground(Color.clear)
             }
@@ -66,6 +68,13 @@ struct LocationsView: View {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("Add location")
+                }
+            }
+            .navigationDestination(for: String.self) { key in
+                if let target = model.target(for: key) {
+                    LocationDetailView(target: target, model: model)
+                } else {
+                    ContentUnavailableView("Location unavailable", systemImage: "location.slash")
                 }
             }
             .sheet(isPresented: $isAdding) {
@@ -104,14 +113,16 @@ struct LocationsView: View {
             }
             .padding(.vertical, 4)
         default:
-            LocationRow(
-                name: model.snapshots[key]?.placeName ?? "My Location",
-                tag: "MY LOCATION",
-                snapshot: model.snapshots[key],
-                failed: model.failed.contains(key),
-                lead: model.lead,
-                failureText: "Couldn't find your location. Pull to retry."
-            )
+            NavigationLink(value: key) {
+                LocationRow(
+                    name: model.snapshots[key]?.placeName ?? "My Location",
+                    tag: "MY LOCATION",
+                    snapshot: model.snapshots[key],
+                    failed: model.failed.contains(key),
+                    lead: model.lead,
+                    failureText: "Couldn't find your location. Pull to retry."
+                )
+            }
         }
     }
 }

@@ -25,6 +25,13 @@ struct METForecast: Decodable, Sendable {
     struct Details: Decodable, Sendable {
         let airTemperature: Double
         let apparentAirTemperature: Double?
+        let windSpeed: Double?
+        let windFromDirection: Double?
+        let relativeHumidity: Double?
+        /// Clear-sky UV, an upper bound; MET doesn't forecast cloud-adjusted UV.
+        let ultravioletIndexClearSky: Double?
+        let airPressureAtSeaLevel: Double?
+        let dewPointTemperature: Double?
     }
 
     struct Period: Decodable, Sendable {
@@ -35,6 +42,7 @@ struct METForecast: Decodable, Sendable {
     struct PeriodDetails: Decodable, Sendable {
         let airTemperatureMax: Double?
         let airTemperatureMin: Double?
+        let precipitationAmount: Double?
     }
 
     struct Summary: Decodable, Sendable {
