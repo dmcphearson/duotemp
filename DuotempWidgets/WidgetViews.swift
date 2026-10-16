@@ -48,11 +48,7 @@ private struct SmallView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 4) {
-                PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
-                Spacer(minLength: 4)
-                UpdatedTime(date: snapshot.fetchedAt)
-            }
+            PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
             Spacer(minLength: 0)
             BigTemps(temperature: now.temperature, lead: entry.lead)
             Spacer(minLength: 0)
@@ -78,11 +74,10 @@ private struct MediumView: View {
                     BigTemps(temperature: now.temperature, lead: entry.lead, leadSize: 40, trailSize: 24)
                 }
                 Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 2) {
+                VStack(alignment: .trailing, spacing: 4) {
                     ConditionLabel(hour: now, size: 14)
                     HighLow(snapshot: snapshot, lead: entry.lead)
                     FeelsLike(temperature: now.feelsLike, lead: entry.lead)
-                    UpdatedTime(date: snapshot.fetchedAt)
                 }
             }
             Spacer(minLength: 4)
@@ -185,18 +180,6 @@ private struct PlaceName: View {
                     .accessibilityLabel("Current location")
             }
         }
-    }
-}
-
-/// When the forecast was fetched; MET's terms ask apps to show it.
-private struct UpdatedTime: View {
-    let date: Date
-
-    var body: some View {
-        Text(date, format: .dateTime.hour().minute())
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(Theme.secondary)
-            .accessibilityLabel(Text("Updated \(date, format: .dateTime.hour().minute())"))
     }
 }
 
