@@ -56,8 +56,12 @@ enum SharedStore {
         read(WeatherSnapshot.self, cacheKey(source, key))
     }
 
-    static func cache(_ snapshot: WeatherSnapshot, key: String) {
-        write(snapshot, cacheKey(snapshot.source, key))
+    /// Saves a fresh snapshot, widening today's high and low with the cached one, and returns what was saved.
+    @discardableResult
+    static func cache(_ snapshot: WeatherSnapshot, key: String) -> WeatherSnapshot {
+        let merged = snapshot.widened(with: cachedSnapshot(source: snapshot.source, key: key))
+        write(merged, cacheKey(snapshot.source, key))
+        return merged
     }
 
     static func removeCache(key: String) {

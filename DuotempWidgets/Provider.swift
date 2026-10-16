@@ -39,9 +39,7 @@ struct Provider: AppIntentTimelineProvider {
         let source = SharedStore.source
         let snapshot: WeatherSnapshot?
         do {
-            let fresh = try await fetch(target, source: source)
-            SharedStore.cache(fresh, key: target.id)
-            snapshot = fresh
+            snapshot = SharedStore.cache(try await fetch(target, source: source), key: target.id)
         } catch {
             snapshot = SharedStore.cachedSnapshot(source: source, key: target.id)
         }

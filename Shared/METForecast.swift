@@ -15,6 +15,7 @@ struct METForecast: Decodable, Sendable {
     struct StepData: Decodable, Sendable {
         let instant: Instant
         let next1Hours: Period?
+        let next6Hours: Period?
     }
 
     struct Instant: Decodable, Sendable {
@@ -28,6 +29,12 @@ struct METForecast: Decodable, Sendable {
 
     struct Period: Decodable, Sendable {
         let summary: Summary
+        let details: PeriodDetails?
+    }
+
+    struct PeriodDetails: Decodable, Sendable {
+        let airTemperatureMax: Double?
+        let airTemperatureMin: Double?
     }
 
     struct Summary: Decodable, Sendable {
@@ -63,13 +70,18 @@ struct METForecast: Decodable, Sendable {
             throw METError.noData
         }
 
-        // High and low over the rest of today in the location's time zone.
+        // High and low over the rest of today in the location's time zone, including the 6-hour
+        // extremes MET forecasts between hourly points. SharedStore widens this with earlier
+        // fetches from the same day, since the forecast never covers hours already past.
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZoneID.flatMap(TimeZone.init(identifier:)) ?? .current
-        let today = steps
-            .filter { $0.time >= current.date && calendar.isDate($0.time, inSameDayAs: now) }
-            .map(\.data.instant.details.airTemperature)
-        let temperatures = today.isEmpty ? [current.temperature.celsius] : today
+        let today = steps.filter { $0.time >= current.date && calendar.isDate($0.time, inSameDayAs: now) }
+        var temperatures = today.map(\.data.instant.details.airTemperature)
+        for step in today {
+            if let max = step.data.next6Hours?.details?.airTemperatureMax { temperatures.append(max) }
+            if let min = step.data.next6Hours?.details?.airTemperatureMin { temperatures.append(min) }
+        }
+        if temperatures.isEmpty { temperatures = [current.temperature.celsius] }
 
         return WeatherSnapshot(
             placeName: placeName,

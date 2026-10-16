@@ -31,6 +31,24 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         hours.last { $0.date <= date } ?? current
     }
 
+    /// Today's high and low widened with an earlier fetch from the same local day and source.
+    func widened(with earlier: WeatherSnapshot?) -> WeatherSnapshot {
+        guard let earlier, earlier.source == source else { return self }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        guard calendar.isDate(earlier.fetchedAt, inSameDayAs: fetchedAt) else { return self }
+        return WeatherSnapshot(
+            placeName: placeName,
+            timeZoneID: timeZoneID,
+            source: source,
+            fetchedAt: fetchedAt,
+            current: current,
+            high: DualTemp(celsius: max(high.celsius, earlier.high.celsius)),
+            low: DualTemp(celsius: min(low.celsius, earlier.low.celsius)),
+            hours: hours
+        )
+    }
+
     /// The next `count` forecast hours after `date`.
     func upcoming(after date: Date, count: Int = 6) -> [Hour] {
         Array(hours.filter { $0.date > date }.prefix(count))

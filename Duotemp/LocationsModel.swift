@@ -72,9 +72,8 @@ final class LocationsModel {
             }
             for await (key, snapshot) in group {
                 if let snapshot {
-                    snapshots[key] = snapshot
+                    snapshots[key] = SharedStore.cache(snapshot, key: key)
                     failed.remove(key)
-                    SharedStore.cache(snapshot, key: key)
                 } else {
                     failed.insert(key)
                 }
