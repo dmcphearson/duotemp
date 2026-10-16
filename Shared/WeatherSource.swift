@@ -7,7 +7,7 @@ enum WeatherSource: String, Codable, CaseIterable, Sendable {
 
     var displayName: String {
         switch self {
-        case .yr: "Yr (MET Norway)"
+        case .yr: "MET Norway"
         case .apple: "Apple Weather"
         }
     }

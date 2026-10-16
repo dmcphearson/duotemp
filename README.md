@@ -6,7 +6,7 @@ Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels
 - Lock Screen widgets: rectangular, circular and inline.
 - Each widget shows your current location or a saved place.
 - Choose which unit leads; the other is always beside it.
-- Forecasts from [Yr / MET Norway](https://api.met.no) by default, or Apple Weather.
+- Forecasts from [MET Norway](https://api.met.no) by default, with Apple Weather filling gaps or as the main source.
 
 ## Privacy
 No accounts, analytics, ads or tracking. Your location stays on the device; only coordinates rounded to about 1 km are sent to the forecast provider you choose. Settings and cached forecasts live in the app's App Group container.
@@ -26,7 +26,7 @@ No accounts, analytics, ads or tracking. Your location stays on the device; only
 4. Run the `Duotemp` scheme on a device, then add the widget from the Home Screen.
 
 ## Data sources
-- **Yr (MET Norway)**: Locationforecast 2.0, [CC BY 4.0](https://api.met.no/doc/License). The app follows the [terms of service](https://api.met.no/doc/TermsOfService): an identifying User-Agent, cached responses honouring `Expires` and `If-Modified-Since`, and rounded coordinates. Set `MET_BASE_URL` in `Config/Base.xcconfig` to route requests through a caching proxy.
+- **MET Norway**: Locationforecast 2.0 (the data behind Yr), [CC BY 4.0](https://api.met.no/doc/License). The app follows the [terms of service](https://api.met.no/doc/TermsOfService): an identifying User-Agent, cached responses honouring `Expires` and `If-Modified-Since`, and rounded coordinates. Set `MET_BASE_URL` in `Config/Base.xcconfig` to route requests through a caching proxy.
 - **Apple Weather**: WeatherKit, with Apple's attribution shown in the app.
 
 ## Licence
