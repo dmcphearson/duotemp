@@ -59,43 +59,65 @@ struct SkyScene: View {
         return CGFloat(eastward * 0.6)
     }
 
+    /// Two layers so slow things don't redraw at the rain's rate: the sky, sun, moon, stars, clouds and
+    /// fog at 12 frames a second, and lightning, rain and snow at 30, only when there are any.
     var body: some View {
-        Group {
-            if animated && !reduceMotion {
-                TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
-                    frame(at: timeline.date, time: timeline.date.timeIntervalSinceReferenceDate)
-                }
-            } else if animated {
-                TimelineView(.everyMinute) { timeline in
-                    frame(at: timeline.date, time: nil)
-                }
-            } else {
-                frame(at: date ?? .now, time: nil)
+        ZStack {
+            layer(weather: false, interval: 1.0 / 12)
+            if hasWeather {
+                layer(weather: true, interval: 1.0 / 30)
             }
         }
         .clipped()
         .accessibilityHidden(true)
     }
 
-    private func frame(at date: Date, time: Double?) -> some View {
+    private var hasWeather: Bool {
+        Decor(symbolName: symbolName, glow: 0, moonPhase: 0, daylight: 1, slant: 0).hasWeather
+    }
+
+    @ViewBuilder
+    private func layer(weather: Bool, interval: Double) -> some View {
+        if animated && !reduceMotion {
+            TimelineView(.animation(minimumInterval: interval)) { timeline in
+                frame(weather: weather, at: timeline.date, time: timeline.date.timeIntervalSinceReferenceDate)
+            }
+        } else if animated {
+            TimelineView(.everyMinute) { timeline in
+                frame(weather: weather, at: timeline.date, time: nil)
+            }
+        } else {
+            frame(weather: weather, at: date ?? .now, time: nil)
+        }
+    }
+
+    private func frame(weather: Bool, at date: Date, time: Double?) -> some View {
         let sky = track.at(date)
         let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
         // 1 by day, 0 by night, blending from 4° above the horizon to 6° below as dusk ends.
         let daylight = sky.elevation.map { min(max(($0 + 6) / 10, 0), 1) } ?? (isDaylight == false ? 0 : 1)
         let glow = style.glow(sunElevation: sky.elevation)
         let decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
-        let seed = seed
+        let seed = weather ? seed ^ 0x5EED_5EED_5EED_5EED : seed
         let celestial = celestial
         let moonAnchor = moonAnchor
         let progress = sunFollowsTime ? sky.progress : nil
         return Canvas { context, size in
             var random = SeededRandom(state: seed)
-            decor.draw(
-                in: &context, size: size, celestial: celestial, moonAnchor: moonAnchor,
-                sunProgress: progress, time: time, random: &random
-            )
+            if weather {
+                decor.drawWeather(in: &context, size: size, time: time, random: &random)
+            } else {
+                decor.drawBackdrop(
+                    in: &context, size: size, celestial: celestial, moonAnchor: moonAnchor,
+                    sunProgress: progress, time: time, random: &random
+                )
+            }
         }
-        .background(style.gradient(daylight: daylight, glow: glow))
+        .background {
+            if !weather {
+                style.gradient(daylight: daylight, glow: glow)
+            }
+        }
     }
 }
 
@@ -177,7 +199,10 @@ private struct Decor {
         }
     }
 
-    func draw(
+    var hasWeather: Bool { storm || precipitation != nil }
+
+    /// Sun, moon, stars, fog and clouds: the slow-moving part.
+    func drawBackdrop(
         in context: inout GraphicsContext,
         size: CGSize,
         celestial: UnitPoint,
@@ -223,6 +248,11 @@ private struct Decor {
             drawFog(in: &context, size: size, unit: unit, sunAt: sunAt, time: time, random: &random)
         }
         drawClouds(in: &context, size: size, unit: unit, time: time, random: &random)
+    }
+
+    /// Lightning, rain and snow: the fast-moving part.
+    func drawWeather(in context: inout GraphicsContext, size: CGSize, time: Double?, random: inout SeededRandom) {
+        let unit = min(size.width, size.height)
         if storm { drawLightning(in: &context, size: size, unit: unit, time: time, random: &random) }
         switch precipitation {
         case .rain(let amount): drawRain(in: &context, size: size, unit: unit, amount: amount, time: time, random: &random)
@@ -269,10 +299,10 @@ private struct Decor {
             let opacity = time == nil ? 0.08 : 0.065 + 0.05 * wave(time, period: band.period, phase: band.phase)
             context.stroke(circle(center, radius * band.fraction), with: .color(.white.opacity(opacity)), lineWidth: 1)
         }
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: unit * 0.03))
-            layer.fill(circle(center, unit * 0.1), with: .color(Color.white.mix(with: Color(hex: 0xFFD49A), by: glow).opacity(0.8)))
-        }
+        softEllipse(
+            &context, CGRect(x: center.x - unit * 0.13, y: center.y - unit * 0.13, width: unit * 0.26, height: unit * 0.26),
+            color: Color.white.mix(with: Color(hex: 0xFFD49A), by: glow), opacity: 0.8, solid: 0.5
+        )
     }
 
     private func moonRadius(_ unit: CGFloat) -> CGFloat {
@@ -342,6 +372,7 @@ private struct Decor {
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
             let x = CGFloat.random(in: -width * 0.3...size.width - width * 0.5, using: &random) + width * 0.07 * drift
             let y = size.height * .random(in: 0.08...0.6, using: &random)
+            // One blurred shape keeps the cloud even; soft-edged parts would build up where they overlap.
             var cloud = Path()
             cloud.addRoundedRect(in: CGRect(x: x, y: y, width: width, height: width * 0.22), cornerSize: CGSize(width: width * 0.11, height: width * 0.11))
             cloud.addEllipse(in: CGRect(x: x + width * 0.1, y: y - width * 0.14, width: width * 0.34, height: width * 0.34))
@@ -422,10 +453,10 @@ private struct Decor {
                     center: center, startRadius: 0, endRadius: unit * 0.45
                 )
             )
-            context.drawLayer { layer in
-                layer.addFilter(.blur(radius: unit * 0.035))
-                layer.fill(circle(center, unit * 0.08), with: .color(.white.opacity(0.28 * daylight)))
-            }
+            softEllipse(
+                &context, CGRect(x: center.x - unit * 0.115, y: center.y - unit * 0.115, width: unit * 0.23, height: unit * 0.23),
+                opacity: 0.28 * daylight, solid: 0.4
+            )
         }
         // Back to front: wide and faint high up, tighter and brighter low down.
         let layers: [(top: CGFloat, height: CGFloat, blur: CGFloat, opacity: Double, period: ClosedRange<Double>)] = [
@@ -435,16 +466,14 @@ private struct Decor {
         ]
         let tint = 0.8 + 0.2 * daylight
         for layer in layers {
-            context.drawLayer { context in
-                context.addFilter(.blur(radius: unit * layer.blur))
-                for _ in 0..<3 {
-                    let width = size.width * .random(in: 0.9...1.5, using: &random)
-                    let y = size.height * (layer.top + .random(in: 0...0.22, using: &random))
-                    let slide = wave(time, period: .random(in: layer.period, using: &random), phase: .random(in: 0...1, using: &random))
-                    let x = CGFloat.random(in: -width * 0.35...size.width * 0.2, using: &random) + width * 0.08 * slide
-                    let band = Path(roundedRect: CGRect(x: x, y: y, width: width, height: unit * layer.height), cornerRadius: unit * layer.height / 2)
-                    context.fill(band, with: .color(.white.opacity(layer.opacity * tint)))
-                }
+            for _ in 0..<3 {
+                let width = size.width * .random(in: 0.9...1.5, using: &random)
+                let y = size.height * (layer.top + .random(in: 0...0.22, using: &random))
+                let slide = wave(time, period: .random(in: layer.period, using: &random), phase: .random(in: 0...1, using: &random))
+                let x = CGFloat.random(in: -width * 0.35...size.width * 0.2, using: &random) + width * 0.08 * slide
+                let soft = unit * layer.blur
+                let band = CGRect(x: x, y: y, width: width, height: unit * layer.height).insetBy(dx: -soft, dy: -soft)
+                softEllipse(&context, band, opacity: layer.opacity * tint, solid: 0.35)
             }
         }
     }
@@ -495,6 +524,26 @@ private struct Decor {
             return a.1 + (b.1 - a.1) * (position - a.0) / (b.0 - a.0)
         }
         return 0
+    }
+
+    /// An ellipse that's solid out to `solid` of its radius and fades to clear at the rim. It stands in for
+    /// a blurred shape at a fraction of the cost, since blur filters are redone every frame.
+    private func softEllipse(_ context: inout GraphicsContext, _ rect: CGRect, color: Color = .white, opacity: Double, solid: Double) {
+        guard opacity > 0, rect.width > 0, rect.height > 0 else { return }
+        var unitSpace = context
+        unitSpace.translateBy(x: rect.midX, y: rect.midY)
+        unitSpace.scaleBy(x: rect.width / 2, y: rect.height / 2)
+        unitSpace.fill(
+            Path(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2)),
+            with: .radialGradient(
+                Gradient(stops: [
+                    .init(color: color.opacity(opacity), location: 0),
+                    .init(color: color.opacity(opacity), location: solid),
+                    .init(color: color.opacity(0), location: 1),
+                ]),
+                center: .zero, startRadius: 0, endRadius: 1
+            )
+        )
     }
 
     private func circle(_ center: CGPoint, _ radius: CGFloat) -> Path {

@@ -252,7 +252,7 @@ private struct Card<Content: View>: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .glassPanel(RoundedRectangle(cornerRadius: 20))
     }
 }
 

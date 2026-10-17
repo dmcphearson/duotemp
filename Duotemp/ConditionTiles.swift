@@ -30,7 +30,7 @@ struct ConditionTile<Graphic: View>: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 196, alignment: .topLeading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .glassPanel(RoundedRectangle(cornerRadius: 18))
         .accessibilityElement(children: .combine)
     }
 }
@@ -72,7 +72,7 @@ struct WindCompass: View {
                 Text(unit).font(.system(size: 8, weight: .semibold)).foregroundStyle(SkyStyle.secondary)
             }
             .padding(6)
-            .background(.ultraThinMaterial, in: Circle())
+            .glassPanel(Circle())
         }
         .frame(width: 80, height: 80)
     }
@@ -257,7 +257,7 @@ struct VisibilityScale: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
                         .padding(3)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .glassPanel(Circle())
                         .offset(x: min(max(geometry.size.width * fraction - 10, 0), geometry.size.width - 20))
                 }
             }

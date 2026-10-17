@@ -5,6 +5,15 @@ enum Theme {
     static let card = Color(hex: 0x1F3240)
     static let secondary = Color(hex: 0xA9B8C3)
     static let accent = Color(hex: 0xF2B84B)
+    /// Panel fill over the animated sky; a flat tint costs far less than a material's live backdrop blur.
+    static let glass = Color(hex: 0x0B1622).opacity(0.32)
+}
+
+extension View {
+    /// A translucent panel with a hairline edge, used in place of `.ultraThinMaterial` over animated skies.
+    func glassPanel<S: InsettableShape>(_ shape: S, fill: Color = Theme.glass) -> some View {
+        background(shape.fill(fill).overlay(shape.strokeBorder(.white.opacity(0.1), lineWidth: 0.5)))
+    }
 }
 
 extension Color {

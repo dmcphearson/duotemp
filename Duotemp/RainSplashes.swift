@@ -148,7 +148,7 @@ private struct SplashLayer: View {
         }
         let count = max(1, Int(size.width * perPoint))
         var streaks = Path()
-        var puffs: [(Path, Double)] = []
+        var puffs: [(CGRect, Double)] = []
         var glints: [(Path, Double)] = []
         for _ in 0..<count {
             let x = CGFloat.random(in: 10...max(11, size.width - 10), using: &random)
@@ -165,7 +165,7 @@ private struct SplashLayer: View {
             } else if beat < 0.5 {
                 let fade = (beat - 0.2) / 0.3
                 let width = 6 + 10 * fade
-                puffs.append((Path(ellipseIn: CGRect(x: x - width / 2, y: edge - 2.5, width: width, height: 3.5)), 0.28 * (1 - fade)))
+                puffs.append((CGRect(x: x - width / 2 - 1.6, y: edge - 4.1, width: width + 3.2, height: 6.7), 0.28 * (1 - fade)))
                 if fade < 0.5 {
                     var glint = Path()
                     glint.move(to: CGPoint(x: x - width * 0.6, y: edge))
@@ -175,11 +175,13 @@ private struct SplashLayer: View {
             }
         }
         context.stroke(streaks, with: .color(.white.opacity(streakOpacity)), style: StrokeStyle(lineWidth: 1, lineCap: .round))
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: 1.6))
-            for (puff, opacity) in puffs {
-                layer.fill(puff, with: .color(.white.opacity(opacity)))
-            }
+        // Each puff is a radial gradient squashed to its ellipse, which reads as soft without a blur pass.
+        for (rect, opacity) in puffs {
+            var puff = context
+            puff.translateBy(x: rect.midX, y: rect.midY)
+            puff.scaleBy(x: rect.width / 2, y: rect.height / 2)
+            let gradient = Gradient(colors: [.white.opacity(opacity), .white.opacity(opacity * 0.6), .white.opacity(0)])
+            puff.fill(Path(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2)), with: .radialGradient(gradient, center: .zero, startRadius: 0, endRadius: 1))
         }
         for (glint, opacity) in glints {
             context.stroke(glint, with: .color(.white.opacity(opacity)), lineWidth: 0.75)
