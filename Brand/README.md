@@ -15,3 +15,5 @@ The icon is a degree ring on the horizon: warm sun above, its reflection drawn a
 - The app's icon set (`Duotemp/Assets.xcassets/AppIcon.appiconset`) uses the 1024 px PNGs.
 
 Regenerate the SVGs with `python3 Brand/build_brand.py Brand/svg` (needs fontTools; Outfit is in `fonts/`, SIL OFL). PNGs are rendered from the SVGs with headless Chrome.
+
+These files are © David McPhearson, all rights reserved, and are not covered by the repository's GPL licence (see the main README). The Outfit font keeps its own SIL Open Font License.

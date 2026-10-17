@@ -32,4 +32,12 @@ No accounts, analytics, ads or tracking. Your location stays on the device; only
 Every third-party service, framework and asset, with its licence, is listed in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 ## Licence
-MIT. See [LICENSE](LICENSE).
+The source code is licensed under the [GNU General Public License v3.0](LICENSE). Copyright (c) 2026 David McPhearson.
+
+Any paid features (such as radar maps or Apple Watch widgets) live in a separate private package and are not part of this repository or its licence.
+
+## Name and logo
+"duoTemp", "duoTemp Weather", the app icon and the logo are trademarks of David McPhearson and are not covered by the GPL. You may build and modify the code, but a distributed version must use its own name and icon and must not suggest it is duoTemp. The files in `Brand/` are © David McPhearson, all rights reserved, apart from the Outfit font in `Brand/fonts/` (SIL OFL).
+
+## Contributing
+Issues and suggestions are welcome. Pull requests aren't accepted yet: code contributions will need a contributor licence agreement, which isn't set up.
