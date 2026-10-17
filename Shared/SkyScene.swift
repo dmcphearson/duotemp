@@ -144,7 +144,10 @@ private struct Decor {
         if let moonCenter {
             drawMoon(in: &context, at: moonCenter, unit: unit, time: time)
         }
-        if fog { drawFog(in: &context, size: size, unit: unit, time: time, random: &random) }
+        if fog {
+            let sunAt = sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor
+            drawFog(in: &context, size: size, unit: unit, sunAt: sunAt, time: time, random: &random)
+        }
         drawClouds(in: &context, size: size, unit: unit, time: time, random: &random)
         if storm { drawLightning(in: &context, size: size, unit: unit, time: time, random: &random) }
         switch precipitation {
@@ -314,16 +317,42 @@ private struct Decor {
         context.fill(flakes, with: .color(.white.opacity(0.55)))
     }
 
-    private func drawFog(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?, random: inout SeededRandom) {
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: unit * 0.05))
-            for index in 0..<5 {
-                let width = size.width * .random(in: 0.7...1.3, using: &random)
-                let y = size.height * (0.3 + 0.13 * CGFloat(index)) + .random(in: -8...8, using: &random)
-                let slide = wave(time, period: .random(in: 38...56, using: &random), phase: .random(in: 0...1, using: &random))
-                let x = CGFloat.random(in: -width * 0.3...size.width * 0.3, using: &random) + width * 0.09 * slide
-                let band = Path(roundedRect: CGRect(x: x, y: y, width: width, height: unit * 0.1), cornerRadius: unit * 0.05)
-                layer.fill(band, with: .color(.white.opacity(0.16)))
+    /// Layered haze: by day a pale sun disc shows through, then three depths of very soft bands drift at
+    /// different speeds, thickening toward the ground.
+    private func drawFog(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, sunAt: CGPoint, time: Double?, random: inout SeededRandom) {
+        if !night {
+            // Where the sun would be, kept just inside the frame and blurred, as if seen through fog.
+            let center = CGPoint(x: min(max(sunAt.x, unit * 0.15), size.width - unit * 0.15), y: max(sunAt.y, unit * 0.15))
+            context.fill(
+                circle(center, unit * 0.45),
+                with: .radialGradient(
+                    Gradient(colors: [.white.opacity(0.22), .white.opacity(0.06), .clear]),
+                    center: center, startRadius: 0, endRadius: unit * 0.45
+                )
+            )
+            context.drawLayer { layer in
+                layer.addFilter(.blur(radius: unit * 0.035))
+                layer.fill(circle(center, unit * 0.08), with: .color(.white.opacity(0.28)))
+            }
+        }
+        // Back to front: wide and faint high up, tighter and brighter low down.
+        let layers: [(top: CGFloat, height: CGFloat, blur: CGFloat, opacity: Double, period: ClosedRange<Double>)] = [
+            (0.15, 0.3, 0.14, 0.1, 70...90),
+            (0.4, 0.24, 0.1, 0.13, 50...64),
+            (0.62, 0.2, 0.07, 0.13, 36...46),
+        ]
+        let tint = night ? 0.8 : 1
+        for layer in layers {
+            context.drawLayer { context in
+                context.addFilter(.blur(radius: unit * layer.blur))
+                for _ in 0..<3 {
+                    let width = size.width * .random(in: 0.9...1.5, using: &random)
+                    let y = size.height * (layer.top + .random(in: 0...0.22, using: &random))
+                    let slide = wave(time, period: .random(in: layer.period, using: &random), phase: .random(in: 0...1, using: &random))
+                    let x = CGFloat.random(in: -width * 0.35...size.width * 0.2, using: &random) + width * 0.08 * slide
+                    let band = Path(roundedRect: CGRect(x: x, y: y, width: width, height: unit * layer.height), cornerRadius: unit * layer.height / 2)
+                    context.fill(band, with: .color(.white.opacity(layer.opacity * tint)))
+                }
             }
         }
     }

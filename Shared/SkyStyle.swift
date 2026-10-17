@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Background for a widget or location card, chosen from the hour's symbol and whether the sun is up.
 enum SkyStyle: String, CaseIterable, Sendable {
-    case clearDay, cloudyDay, clearNight, cloudyNight, rain, storm, snowOrFog
+    case clearDay, cloudyDay, clearNight, cloudyNight, rain, storm, snow, fog, fogNight
 
     init(hour: WeatherSnapshot.Hour) {
         self.init(symbolName: hour.symbolName, isDaylight: hour.isDaylight)
@@ -12,8 +12,10 @@ enum SkyStyle: String, CaseIterable, Sendable {
         let parts = Set(symbolName.split(separator: ".").map(String.init))
         if parts.contains("bolt") {
             self = .storm
-        } else if !parts.isDisjoint(with: ["snow", "sleet", "hail", "fog", "haze", "smoke", "dust", "snowflake"]) {
-            self = .snowOrFog
+        } else if !parts.isDisjoint(with: ["fog", "haze", "smoke", "dust"]) {
+            self = isDaylight == false ? .fogNight : .fog
+        } else if !parts.isDisjoint(with: ["snow", "sleet", "hail", "snowflake"]) {
+            self = .snow
         } else if !parts.isDisjoint(with: ["rain", "drizzle", "heavyrain", "bolt"]) {
             self = .rain
         } else if parts.contains("sun") {
@@ -36,7 +38,7 @@ enum SkyStyle: String, CaseIterable, Sendable {
         let strength: Double = switch self {
         case .clearDay, .clearNight: 1
         case .cloudyDay, .cloudyNight: 0.55
-        case .rain, .storm, .snowOrFog: 0.3
+        case .rain, .storm, .snow, .fog, .fogNight: 0.3
         }
         return max(0, 1 - distance) * strength
     }
@@ -63,7 +65,10 @@ enum SkyStyle: String, CaseIterable, Sendable {
         case .cloudyNight: (0x1B2430, 0x2B3644)
         case .rain: (0x26394A, 0x34495C)
         case .storm: (0x1E1F33, 0x34344A)
-        case .snowOrFog: (0x4A5866, 0x5D6B78)
+        case .snow: (0x4A5866, 0x5D6B78)
+        // Fog sits low, so it lightens toward the bottom.
+        case .fog: (0x52606C, 0x76838F)
+        case .fogNight: (0x1E2631, 0x3B4653)
         }
         return (Color(hex: top), Color(hex: bottom))
     }
