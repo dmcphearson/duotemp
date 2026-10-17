@@ -4,6 +4,7 @@ import SwiftUI
 struct LocationsView: View {
     @State private var model = LocationsModel()
     @State private var isAdding = false
+    @State private var isShowingSettings = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
 
@@ -11,27 +12,10 @@ struct LocationsView: View {
         NavigationStack {
             List {
                 Section {
-                    LabeledContent("Lead with") {
-                        Picker("Lead with", selection: $model.lead) {
-                            Text("°C").tag(LeadUnit.celsius)
-                            Text("°F").tag(LeadUnit.fahrenheit)
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 140)
-                    }
-                    Picker("Forecast", selection: $model.source) {
-                        ForEach(WeatherSource.allCases, id: \.self) { source in
-                            Text(source.displayName).tag(source)
-                        }
-                    }
-                }
-                .listRowBackground(Theme.card)
-
-                Section {
                     currentLocationRow
                     ForEach(model.locations) { location in
                         let key = location.id.uuidString
-                        NavigationLink(value: key) {
+                        card(key: key) {
                             LocationRow(
                                 name: location.name,
                                 tag: nil,
@@ -40,28 +24,39 @@ struct LocationsView: View {
                                 lead: model.lead
                             )
                         }
-                        .listRowBackground(LocationRow.background(for: model.snapshots[key]))
                     }
                     .onDelete(perform: model.delete)
                     .onMove(perform: model.move)
                 } footer: {
-                    Text("Long-press your Home Screen, add the duotemp widget, then tap it while editing to choose a location.")
+                    if let updated = model.snapshots.values.map(\.fetchedAt).max() {
+                        Text("Updated \(updated, format: .dateTime.hour().minute())")
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 4)
+                    }
                 }
-                .listRowBackground(Theme.card)
+                .listRowSeparator(.hidden)
             }
-            .listRowSpacing(10)
+            .listRowSpacing(12)
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
+            .background { screenBackground.ignoresSafeArea() }
             .safeAreaInset(edge: .bottom) {
                 AttributionFooter(sources: AttributionFooter.listSources(primary: model.source))
                     .pinnedToBottom()
             }
-            .navigationTitle("Locations")
+            .navigationTitle("duotemp")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    EditButton()
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                    .accessibilityLabel("Settings")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if model.locations.count > 1 {
+                        EditButton()
+                    }
                     Button {
                         isAdding = true
                     } label: {
@@ -80,6 +75,9 @@ struct LocationsView: View {
             .sheet(isPresented: $isAdding) {
                 AddLocationView { model.add($0) }
             }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsView(model: model)
+            }
             .refreshable { await model.refresh() }
             .onChange(of: scenePhase, initial: true) {
                 if scenePhase == .active {
@@ -88,6 +86,29 @@ struct LocationsView: View {
             }
         }
         .tint(Theme.accent)
+    }
+
+    /// A tappable card without the list's disclosure chevron, on its sky.
+    private func card<Content: View>(key: String, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .background {
+                NavigationLink(value: key) { EmptyView() }
+                    .opacity(0)
+            }
+            .listRowBackground(LocationRow.background(for: model.snapshots[key]))
+            .listRowInsets(EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18))
+    }
+
+    /// The first card's sky, dimmed, so the screen takes on the weather where you are.
+    @ViewBuilder
+    private var screenBackground: some View {
+        let first = model.snapshots[SharedStore.currentLocationKey] ?? model.locations.first.flatMap { model.snapshots[$0.id.uuidString] }
+        if let first {
+            SkyStyle(hour: first.now(at: .now)).gradient
+                .overlay(Theme.background.opacity(0.72))
+        } else {
+            Theme.background
+        }
     }
 
     @ViewBuilder
@@ -99,7 +120,10 @@ struct LocationsView: View {
                 model.requestLocationAccess()
             } label: {
                 Label("Show weather for my location", systemImage: "location.fill")
+                    .font(.headline)
+                    .padding(.vertical, 8)
             }
+            .listRowBackground(Theme.card)
         case .denied, .restricted:
             VStack(alignment: .leading, spacing: 6) {
                 Text("Location access is off")
@@ -112,18 +136,18 @@ struct LocationsView: View {
                 }
             }
             .padding(.vertical, 4)
+            .listRowBackground(Theme.card)
         default:
-            NavigationLink(value: key) {
+            card(key: key) {
                 LocationRow(
                     name: model.snapshots[key]?.placeName ?? "My Location",
-                    tag: "MY LOCATION",
+                    tag: "My Location",
                     snapshot: model.snapshots[key],
                     failed: model.failed.contains(key),
                     lead: model.lead,
                     failureText: "Couldn't find your location. Pull to retry."
                 )
             }
-            .listRowBackground(LocationRow.background(for: model.snapshots[key]))
         }
     }
 }

@@ -9,5 +9,5 @@
 - `Config/Base.xcconfig` holds the bundle prefix, team and `MET_BASE_URL`; `//` in xcconfig starts a comment, so URLs are written `https:/$()/…`.
 - The app group ID is derived from the bundle ID in `SharedStore.appGroupID`; keep the widget bundle ID as `<app ID>.widgets`.
 - Swift 6 language mode. MapKit and CoreLocation delegates need explicit isolation handling (see `PlaceSearch`, `OneShotLocation`).
-- MET Norway terms: keep the User-Agent, the shared URLCache, coordinates at 2 decimals, and the fetch time visible in widgets.
+- MET Norway terms: keep the User-Agent, the shared URLCache, coordinates at 2 decimals, and the fetch time visible in the app.
 - Logs use the `[duotemp]` prefix.
