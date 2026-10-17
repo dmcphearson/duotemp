@@ -4,6 +4,8 @@
 <dict>
 	<key>METBaseURL</key>
 	<string>$(MET_BASE_URL)</string>
+	<key>ProxyBaseURL</key>
+	<string>$(PROXY_BASE_URL)</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

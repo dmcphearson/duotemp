@@ -2,10 +2,10 @@ import Foundation
 import OSLog
 
 /// MET Norway Locationforecast 2.0 and Sunrise 3.0, the data behind Yr. Follows https://api.met.no/doc/TermsOfService:
-/// - identifies itself with a User-Agent naming the app and repo;
+/// - goes through duoTemp's caching proxy (`METBaseURL`), which shares one MET response between nearby
+///   users until its `Expires` and identifies duoTemp to MET with a contact address;
 /// - rounds coordinates to 2 decimals (about 1 km; the terms allow at most 4);
-/// - caches responses in the app group so the app and widgets share them, serving them until
-///   `Expires` and then revalidating with `If-Modified-Since`.
+/// - caches responses in the app group so the app and widgets share them, serving them until `Expires`.
 enum METClient {
     private static let log = Logger(subsystem: "me.mcphearson.duotemp", category: "MET")
 
@@ -98,7 +98,7 @@ enum METClient {
 
     private static var userAgent: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        return "duotemp/\(version) github.com/dmcphearson/duotemp"
+        return "duoTemp/\(version)"
     }
 
     private static let session: URLSession = {

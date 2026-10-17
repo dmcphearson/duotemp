@@ -40,8 +40,19 @@ struct KpForecast: Sendable {
 
 enum AuroraClient {
     private static let log = Logger(subsystem: "me.mcphearson.duotemp", category: "Aurora")
-    private static let gfzURL = URL(string: "https://spaceweather.gfz.de/fileadmin/Kp-Forecast/CSV/kp_product_file_FORECAST_PAGER_SWIFT_LAST.csv")!
-    private static let noaaURL = URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json")!
+    /// Through the proxy (`ProxyBaseURL` in Info.plist) so GFZ and NOAA never see the user's IP; the
+    /// sources directly when no proxy is configured.
+    private static var gfzURL: URL {
+        proxied("aurora/gfz") ?? URL(string: "https://spaceweather.gfz.de/fileadmin/Kp-Forecast/CSV/kp_product_file_FORECAST_PAGER_SWIFT_LAST.csv")!
+    }
+    private static var noaaURL: URL {
+        proxied("aurora/noaa") ?? URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json")!
+    }
+
+    private static func proxied(_ path: String) -> URL? {
+        let configured = Bundle.main.object(forInfoDictionaryKey: "ProxyBaseURL") as? String
+        return configured.flatMap(URL.init(string:))?.appending(path: path)
+    }
 
     /// The forecast is global, so one fetch serves every location until it's 30 minutes old.
     private static let memo = Memo()
@@ -75,7 +86,7 @@ enum AuroraClient {
     private static func get(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        request.setValue("duotemp/\(version) github.com/dmcphearson/duotemp", forHTTPHeaderField: "User-Agent")
+        request.setValue("duoTemp/\(version)", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0

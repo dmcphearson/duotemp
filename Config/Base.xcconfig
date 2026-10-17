@@ -4,8 +4,10 @@
 BUNDLE_ID_PREFIX = me.mcphearson
 DEVELOPMENT_TEAM = J479S78JUN
 
-// MET Norway API base. Switch to the caching proxy before App Store release.
+// The caching proxy (proxy/, at api.trough.dev) in front of MET Norway and the aurora Kp files.
+// Every build uses it. To call MET directly, set MET_BASE_URL = https:/$()/api.met.no/weatherapi.
 // "/$()/" stops xcconfig treating "//" as a comment.
-MET_BASE_URL = https:/$()/api.met.no/weatherapi
+PROXY_BASE_URL = https:/$()/api.trough.dev
+MET_BASE_URL = $(PROXY_BASE_URL)/met
 
 #include? "Local.xcconfig"
