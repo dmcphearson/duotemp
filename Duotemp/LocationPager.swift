@@ -63,7 +63,11 @@ extension LocationPager {
         ZStack {
             if let snapshot = snapshot(for: selection) {
                 let now = snapshot.now(at: .now)
-                SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: animation.animatesDetail)
+                // The moon sits right of the temperature, below the navigation bar.
+                SkyScene(
+                    hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
+                    moonAnchor: UnitPoint(x: 0.86, y: 0.2), animated: animation.animatesDetail
+                )
                     .id(selection)
                     .transition(.opacity)
             } else {
