@@ -27,6 +27,13 @@ final class LocationsModel {
         }
     }
 
+    #if DEBUG
+    /// Shows a made-up location for every sky; see `SampleSkies`.
+    var showsSampleSkies = UserDefaults.standard.bool(forKey: "showsSampleSkies") {
+        didSet { UserDefaults.standard.set(showsSampleSkies, forKey: "showsSampleSkies") }
+    }
+    #endif
+
     @ObservationIgnored private let locator = OneShotLocation()
     @ObservationIgnored private var isRefreshing = false
 
@@ -85,6 +92,11 @@ final class LocationsModel {
 
     /// What the detail screen needs to load a row: "current" uses the last fix.
     func target(for key: String) -> DetailTarget? {
+        #if DEBUG
+        if SampleSkies.isSample(key), let name = SampleSkies.name(for: key) {
+            return DetailTarget(key: key, name: name, latitude: 0, longitude: 0, timeZoneID: TimeZone.current.identifier)
+        }
+        #endif
         if key == SharedStore.currentLocationKey {
             guard let here = SharedStore.lastKnownCoordinate else { return nil }
             let snapshot = snapshots[key]
@@ -96,6 +108,9 @@ final class LocationsModel {
 
     /// Loads the detail forecast and refreshes the row's cached snapshot with it.
     func detail(for target: DetailTarget) async throws -> ForecastDetail {
+        #if DEBUG
+        if let sample = SampleSkies.detail(for: target.key) { return sample }
+        #endif
         var detail = try await DetailClient.detail(primary: source, target: target)
         detail.snapshot = SharedStore.cache(detail.snapshot, key: target.key)
         snapshots[target.key] = detail.snapshot

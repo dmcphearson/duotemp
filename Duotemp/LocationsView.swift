@@ -35,6 +35,20 @@ struct LocationsView: View {
                     }
                 }
                 .listRowSeparator(.hidden)
+
+                #if DEBUG
+                if model.showsSampleSkies {
+                    Section("Sample skies") {
+                        ForEach(SampleSkies.keys, id: \.self) { key in
+                            let snapshot = SampleSkies.snapshot(for: key)
+                            card(key: key, snapshot: snapshot) {
+                                LocationRow(name: snapshot?.placeName ?? key, tag: nil, snapshot: snapshot, failed: false, lead: model.lead)
+                            }
+                        }
+                    }
+                    .listRowSeparator(.hidden)
+                }
+                #endif
             }
             .listRowSpacing(12)
             .scrollContentBackground(.hidden)
@@ -89,13 +103,13 @@ struct LocationsView: View {
     }
 
     /// A tappable card without the list's disclosure chevron, on its sky.
-    private func card<Content: View>(key: String, @ViewBuilder content: () -> Content) -> some View {
+    private func card<Content: View>(key: String, snapshot: WeatherSnapshot? = nil, @ViewBuilder content: () -> Content) -> some View {
         content()
             .background {
                 NavigationLink(value: key) { EmptyView() }
                     .opacity(0)
             }
-            .listRowBackground(LocationRow.background(for: model.snapshots[key]))
+            .listRowBackground(LocationRow.background(for: snapshot ?? model.snapshots[key]))
             .listRowInsets(EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18))
     }
 

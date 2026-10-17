@@ -47,6 +47,17 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.card)
 
+                #if DEBUG
+                Section {
+                    Toggle("Sample skies", isOn: $model.showsSampleSkies)
+                } header: {
+                    Text("Testing")
+                } footer: {
+                    Text("Adds a made-up location for every sky to the list. Debug builds only.")
+                }
+                .listRowBackground(Theme.card)
+                #endif
+
                 Section {
                     LabeledContent("Version", value: version)
                     Link(destination: URL(string: "https://github.com/dmcphearson/duotemp")!) {
