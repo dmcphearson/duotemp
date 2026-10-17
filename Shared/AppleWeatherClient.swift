@@ -82,7 +82,8 @@ enum AppleWeatherClient {
                     condition: hour.condition.description,
                     symbolName: hour.symbolName,
                     isDaylight: hour.isDaylight,
-                    sunProgress: Solar.dayProgress(at: hour.date, latitude: latitude, longitude: longitude)
+                    sunProgress: Solar.dayProgress(at: hour.date, latitude: latitude, longitude: longitude),
+                    sunElevation: Solar.elevation(at: hour.date, latitude: latitude, longitude: longitude)
                 )
             }
         let today = daily.forecast.first
@@ -99,7 +100,8 @@ enum AppleWeatherClient {
                 condition: current.condition.description,
                 symbolName: current.symbolName,
                 isDaylight: current.isDaylight,
-                sunProgress: Solar.dayProgress(at: current.date, latitude: latitude, longitude: longitude)
+                sunProgress: Solar.dayProgress(at: current.date, latitude: latitude, longitude: longitude),
+                sunElevation: Solar.elevation(at: current.date, latitude: latitude, longitude: longitude)
             ),
             high: DualTemp(today?.highTemperature ?? current.temperature),
             low: DualTemp(today?.lowTemperature ?? current.temperature),

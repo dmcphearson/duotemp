@@ -7,6 +7,7 @@ struct SkyScene: View {
     let symbolName: String
     let isDaylight: Bool?
     let sunProgress: Double?
+    let sunElevation: Double?
     let seed: UInt64
     /// Where the moon sits, and the sun when it doesn't follow the time of day, as a fraction of the size.
     let celestial: UnitPoint
@@ -18,12 +19,14 @@ struct SkyScene: View {
         symbolName = hour.symbolName
         isDaylight = hour.isDaylight
         sunProgress = sunFollowsTime ? hour.sunProgress : nil
+        sunElevation = hour.sunElevation
         seed = place.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
     }
 
     var body: some View {
         let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
-        let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight)
+        let glow = style.glow(sunElevation: sunElevation)
+        let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight, glow: glow)
         let seed = seed
         let celestial = celestial
         let sunProgress = sunProgress
@@ -31,7 +34,7 @@ struct SkyScene: View {
             var random = SeededRandom(state: seed)
             decor.draw(in: &context, size: size, celestial: celestial, sunProgress: sunProgress, random: &random)
         }
-        .background(style.gradient)
+        .background(style.gradient(glow: glow))
         .accessibilityHidden(true)
     }
 }
@@ -45,9 +48,12 @@ private struct Decor {
     var clouds = 0
     var night = false
     var fog = false
+    /// Sunrise or sunset strength, 0...1; warms the sun.
+    var glow = 0.0
     var precipitation: Precipitation?
 
-    init(symbolName: String, style: SkyStyle, isDaylight: Bool?) {
+    init(symbolName: String, style: SkyStyle, isDaylight: Bool?, glow: Double) {
+        self.glow = glow
         let parts = Set(symbolName.split(separator: ".").map(String.init))
         sun = parts.contains("sun")
         moon = parts.contains("moon")
@@ -100,8 +106,8 @@ private struct Decor {
             circle(center, radius),
             with: .radialGradient(
                 Gradient(stops: [
-                    .init(color: .white.opacity(0.6), location: 0),
-                    .init(color: Theme.accent.opacity(0.22), location: 0.28),
+                    .init(color: Color.white.mix(with: Color(hex: 0xFFC27A), by: glow).opacity(0.6), location: 0),
+                    .init(color: Theme.accent.opacity(0.22 + 0.25 * glow), location: 0.28),
                     .init(color: .clear, location: 1),
                 ]),
                 center: center, startRadius: 0, endRadius: radius
@@ -112,7 +118,7 @@ private struct Decor {
         }
         context.drawLayer { layer in
             layer.addFilter(.blur(radius: unit * 0.03))
-            layer.fill(circle(center, unit * 0.1), with: .color(.white.opacity(0.8)))
+            layer.fill(circle(center, unit * 0.1), with: .color(Color.white.mix(with: Color(hex: 0xFFD49A), by: glow).opacity(0.8)))
         }
     }
 

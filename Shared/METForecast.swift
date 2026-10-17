@@ -80,7 +80,8 @@ struct METForecast: Decodable, Sendable {
                 condition: symbol.condition,
                 symbolName: symbol.symbolName,
                 isDaylight: point.flatMap { $0.count >= 2 ? Solar.isDaylight(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
-                sunProgress: point.flatMap { $0.count >= 2 ? Solar.dayProgress(at: step.time, latitude: $0[1], longitude: $0[0]) : nil }
+                sunProgress: point.flatMap { $0.count >= 2 ? Solar.dayProgress(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
+                sunElevation: point.flatMap { $0.count >= 2 ? Solar.elevation(at: step.time, latitude: $0[1], longitude: $0[0]) : nil }
             )
         }
         guard let current = hourly.last(where: { $0.date <= now }) ?? hourly.first else {

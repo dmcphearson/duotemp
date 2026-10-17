@@ -13,6 +13,8 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         var isDaylight: Bool? = nil
         /// How far the sun is from sunrise (0) to sunset (1); nil at night or when unknown.
         var sunProgress: Double? = nil
+        /// Sun's elevation in degrees; drives the sunrise and sunset colours. Nil when unknown.
+        var sunElevation: Double? = nil
     }
 
     let placeName: String
