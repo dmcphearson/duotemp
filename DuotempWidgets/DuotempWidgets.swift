@@ -14,7 +14,7 @@ struct WeatherWidget: Widget {
             WeatherWidgetView(entry: entry)
                 .containerBackground(for: .widget) { WidgetBackground(entry: entry) }
         }
-        .configurationDisplayName("duotemp Weather")
+        .configurationDisplayName("duoTemp Weather")
         .description("Celsius and Fahrenheit together, with feels-like.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryCircular, .accessoryInline])
     }

@@ -1,4 +1,4 @@
-# duotemp Weather
+# duoTemp Weather
 
 Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels-like on every size.
 

@@ -69,7 +69,7 @@ struct SettingsView: View {
                 .listRowBackground(Theme.card)
 
                 Section("Widgets") {
-                    Label("Long-press your Home Screen, tap Edit, then Add Widget and choose duotemp.", systemImage: "square.grid.2x2")
+                    Label("Long-press your Home Screen, tap Edit, then Add Widget and choose duoTemp Weather.", systemImage: "square.grid.2x2")
                     Label("Tap a widget while editing to choose My Location or a saved place.", systemImage: "hand.tap")
                 }
                 .listRowBackground(Theme.card)

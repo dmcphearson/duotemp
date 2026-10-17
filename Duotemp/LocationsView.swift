@@ -30,7 +30,7 @@ struct LocationsView: View {
                     .onMove(perform: model.move)
                 } header: {
                     // In the list rather than the bar, so the title lines up with the text on the cards.
-                    Text("duotemp")
+                    Text("duoTemp Weather")
                         .font(.system(size: 34, weight: .bold))
                         .foregroundStyle(.white)
                         .textCase(nil)
@@ -67,7 +67,7 @@ struct LocationsView: View {
                 AttributionFooter(sources: AttributionFooter.listSources(primary: model.source))
                     .pinnedToBottom()
             }
-            .navigationTitle("duotemp")
+            .navigationTitle("duoTemp Weather")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
