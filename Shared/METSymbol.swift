@@ -56,7 +56,8 @@ struct METSymbol: Hashable, Sendable {
 
         let symbol = switch (base, thunder) {
         case (_, true): base == "snow" ? "cloud.bolt" : "cloud.bolt.rain"
-        case ("snow", _): "cloud.snow"
+        // Heavy snow gets its own symbol so the sky can draw it heavier.
+        case ("snow", _): intensity == "Heavy" ? "snowflake" : "cloud.snow"
         case ("sleet", _): "cloud.sleet"
         default:
             if intensity == "Heavy" { "cloud.heavyrain" }
