@@ -97,18 +97,28 @@ private struct Decor {
     ) {
         let unit = min(size.width, size.height)
         let anchor = CGPoint(x: celestial.x * size.width, y: celestial.y * size.height)
-        if stars { drawStars(in: &context, size: size, random: &random) }
+        let moonCenter: CGPoint? = if !moon {
+            nil
+        } else if let moonAnchor {
+            CGPoint(x: moonAnchor.x * size.width, y: moonAnchor.y * size.height)
+        } else {
+            // Keep the whole moon on screen.
+            CGPoint(x: min(max(anchor.x, unit * 0.18), size.width - unit * 0.18), y: max(anchor.y, unit * 0.16))
+        }
+        if stars {
+            // No stars inside the moon's disc, where its dark part would let them show through.
+            context.drawLayer { layer in
+                if let moonCenter {
+                    layer.clip(to: circle(moonCenter, moonRadius(unit) + 1), options: .inverse)
+                }
+                drawStars(in: &layer, size: size, random: &random)
+            }
+        }
         if sun {
             drawSun(in: &context, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit)
         }
-        if moon {
-            let center = if let moonAnchor {
-                CGPoint(x: moonAnchor.x * size.width, y: moonAnchor.y * size.height)
-            } else {
-                // Keep the whole moon on screen.
-                CGPoint(x: min(max(anchor.x, unit * 0.18), size.width - unit * 0.18), y: max(anchor.y, unit * 0.16))
-            }
-            drawMoon(in: &context, at: center, unit: unit)
+        if let moonCenter {
+            drawMoon(in: &context, at: moonCenter, unit: unit)
         }
         if fog { drawFog(in: &context, size: size, unit: unit, random: &random) }
         drawClouds(in: &context, size: size, unit: unit, random: &random)
@@ -148,10 +158,14 @@ private struct Decor {
         }
     }
 
+    private func moonRadius(_ unit: CGFloat) -> CGFloat {
+        min(unit * 0.1, 20)
+    }
+
     /// The moon at its phase with a cool glow: lit on the right while waxing, on the left while waning,
     /// with the dark part faintly visible.
     private func drawMoon(in context: inout GraphicsContext, at center: CGPoint, unit: CGFloat) {
-        let radius = min(unit * 0.075, 16)
+        let radius = moonRadius(unit)
         context.fill(
             circle(center, radius * 6),
             with: .radialGradient(
