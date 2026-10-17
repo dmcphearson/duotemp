@@ -29,5 +29,7 @@ No accounts, analytics, ads or tracking. Your location stays on the device; only
 - **MET Norway**: Locationforecast 2.0 (the data behind Yr), [CC BY 4.0](https://api.met.no/doc/License). The app follows the [terms of service](https://api.met.no/doc/TermsOfService): an identifying User-Agent, cached responses honouring `Expires` and `If-Modified-Since`, and rounded coordinates. Set `MET_BASE_URL` in `Config/Base.xcconfig` to route requests through a caching proxy.
 - **Apple Weather**: WeatherKit, with Apple's attribution shown in the app.
 
+Every third-party service, framework and asset, with its licence, is listed in [THIRD_PARTY.md](THIRD_PARTY.md).
+
 ## Licence
 MIT. See [LICENSE](LICENSE).
