@@ -35,7 +35,7 @@ struct LocationDetailView: View {
             }
             .padding(16)
         }
-        .defaultScrollAnchor(Self.startsAtBottom ? .bottom : .top)
+        .defaultScrollAnchor(Self.startAnchor)
         .foregroundStyle(.white)
         .environment(\.rainIntensity, currentHour.flatMap { RainIntensity(symbolName: $0.symbolName) })
         .environment(\.rainSlant, currentHour.map { SkyScene.slant(windSpeed: $0.windSpeed, from: $0.windFromDirection) } ?? -0.15)
@@ -43,13 +43,14 @@ struct LocationDetailView: View {
         .refreshable { await load() }
     }
 
-    /// Screenshots: `-scrollToBottom YES` opens the screen scrolled to its tiles. Always false in release builds.
-    private static var startsAtBottom: Bool {
+    /// Screenshots: `-scrollAnchor 0.6` opens the screen that far down (0 top, 1 bottom). Always the top in release builds.
+    private static var startAnchor: UnitPoint {
         #if DEBUG
-        UserDefaults.standard.bool(forKey: "scrollToBottom")
-        #else
-        false
+        if let fraction = UserDefaults.standard.object(forKey: "scrollAnchor") as? String, let y = Double(fraction) {
+            return UnitPoint(x: 0.5, y: y)
+        }
         #endif
+        return .top
     }
 
     private var currentHour: WeatherSnapshot.Hour? {

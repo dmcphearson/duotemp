@@ -21,6 +21,9 @@ enum SampleSkies {
         /// Metres per second, and the direction it blows from; leans the rain and snow.
         var windSpeed = 3.0
         var windFrom = 250.0
+        /// Where the detail screen thinks the place is: it decides whether the northern lights card shows.
+        var latitude = 53.35
+        var longitude = -6.26
     }
 
     private static let skies: [Sky] = [
@@ -43,7 +46,24 @@ enum SampleSkies {
         Sky(id: "fog", name: "Fog", condition: "Fog", symbol: "cloud.fog", isDaylight: true, sunProgress: 0.25, sunElevation: 9, celsius: 6),
     ]
 
+    /// App Store screenshots: real cities with chosen skies, shown as the main list by `-screenshotCities YES`.
+    /// The first stands in for My Location.
+    private static let cities: [Sky] = [
+        Sky(id: "city-dublin", name: "Dublin", condition: "Partly Cloudy", symbol: "cloud.sun", isDaylight: true, sunProgress: 0.3, sunElevation: 20, celsius: 12, windSpeed: 6, windFrom: 250),
+        Sky(id: "city-madrid", name: "Madrid", condition: "Clear", symbol: "sun.max", isDaylight: true, sunProgress: 0.45, sunElevation: 38, celsius: 24, latitude: 40.42, longitude: -3.7),
+        Sky(id: "city-prague", name: "Prague", condition: "Clear", symbol: "sun.max", isDaylight: true, sunProgress: 0.97, sunElevation: 1.5, celsius: 14, latitude: 50.08, longitude: 14.44),
+        Sky(id: "city-new-york", name: "New York", condition: "Rain and Thunder", symbol: "cloud.bolt.rain", isDaylight: true, sunProgress: 0.55, sunElevation: 30, celsius: 19, rainMM: 5.1, rainChance: 0.9, windSpeed: 11, windFrom: 200, latitude: 40.71, longitude: -74.01),
+        Sky(id: "city-san-francisco", name: "San Francisco", condition: "Fog", symbol: "cloud.fog", isDaylight: true, sunProgress: 0.2, sunElevation: 8, celsius: 15, latitude: 37.77, longitude: -122.42),
+        Sky(id: "city-reykjavik", name: "Reykjavík", condition: "Clear", symbol: "moon.stars", isDaylight: false, sunProgress: nil, sunElevation: -30, celsius: -1, latitude: 64.15, longitude: -21.94),
+        Sky(id: "city-oslo", name: "Oslo", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 10, celsius: -4, rainMM: 3, rainChance: 0.95, windSpeed: 9, windFrom: 40, latitude: 59.91, longitude: 10.75),
+    ]
+
     static var keys: [String] { skies.map { keyPrefix + $0.id } }
+    static var cityKeys: [String] { cities.map { keyPrefix + $0.id } }
+
+    static func coordinate(for key: String) -> (latitude: Double, longitude: Double)? {
+        sky(key).map { ($0.latitude, $0.longitude) }
+    }
 
     static func isSample(_ key: String) -> Bool { key.hasPrefix(keyPrefix) }
 
@@ -58,11 +78,14 @@ enum SampleSkies {
         guard let sky = sky(key) else { return nil }
         let snapshot = makeSnapshot(sky, now: now)
         let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
-        let hours = (0..<48).map { index in
-            ForecastDetail.Hour(
-                date: start.addingTimeInterval(Double(index) * 3600),
-                temperature: DualTemp(celsius: sky.celsius + 3 * sin(Double(index) / 24 * 2 * .pi)),
-                symbolName: sky.symbol,
+        let hours = (0..<48).map { index -> ForecastDetail.Hour in
+            let date = start.addingTimeInterval(Double(index) * 3600)
+            let daylight = isDaylight(sky, hoursAhead: index)
+            let celsius = sky.celsius + 3 * sin(Double(index) / 24 * 2 * .pi)
+            return ForecastDetail.Hour(
+                date: date,
+                temperature: DualTemp(celsius: celsius),
+                symbolName: symbol(sky.symbol, daylight: daylight),
                 precipitationMM: sky.rainMM,
                 precipitationChance: sky.rainChance
             )
@@ -71,7 +94,7 @@ enum SampleSkies {
         let days = (0..<7).map { index in
             ForecastDetail.Day(
                 date: today.addingTimeInterval(Double(index) * 86400),
-                symbolName: sky.symbol,
+                symbolName: symbol(sky.symbol, daylight: true),
                 high: DualTemp(celsius: sky.celsius + 4 + Double(index % 3)),
                 low: DualTemp(celsius: sky.celsius - 3 - Double(index % 2)),
                 precipitationMM: sky.rainMM * 12,
@@ -87,7 +110,7 @@ enum SampleSkies {
             pressure: sky.rainMM > 3 ? 996 : 1018,
             pressureTrend: sky.rainMM > 3 ? .falling : .steady,
             dewPoint: DualTemp(celsius: sky.celsius - 2),
-            visibility: sky.id == "fog" ? 600 : (sky.rainMM > 0 ? 8000 : 24000),
+            visibility: sky.symbol == "cloud.fog" ? 600 : (sky.rainMM > 0 ? 8000 : 24000),
             sunrise: today.addingTimeInterval(7.9 * 3600),
             sunset: today.addingTimeInterval(18.4 * 3600)
         )
@@ -96,8 +119,26 @@ enum SampleSkies {
         return ForecastDetail(snapshot: snapshot, hours: hours, days: days, conditions: conditions, sources: sources)
     }
 
+    /// Day or night some hours on, from the sample's own time of day: an 11-hour day and a 13-hour night,
+    /// so the forecast agrees with the sky shown rather than with the real clock.
+    private static func isDaylight(_ sky: Sky, hoursAhead: Int) -> Bool {
+        let dayLength = 11.0, cycle = 24.0
+        // Hours since sunrise now: a day sky from its progress, a night sky an hour or so before midnight.
+        let sinceSunrise = sky.isDaylight ? (sky.sunProgress ?? 0.5) * dayLength : dayLength + 5
+        let position = (sinceSunrise + Double(hoursAhead)).truncatingRemainder(dividingBy: cycle)
+        return position < dayLength
+    }
+
+    /// The day or night form of a clear or partly cloudy symbol, so a night sky's forecast shows suns by day.
+    private static func symbol(_ name: String, daylight: Bool) -> String {
+        let pairs = ["sun.max": "moon.stars", "cloud.sun": "cloud.moon"]
+        if daylight, let day = pairs.first(where: { $0.value == name })?.key { return day }
+        if !daylight, let night = pairs[name] { return night }
+        return name
+    }
+
     private static func sky(_ key: String) -> Sky? {
-        skies.first { keyPrefix + $0.id == key }
+        (skies + cities).first { keyPrefix + $0.id == key }
     }
 
     private static func makeSnapshot(_ sky: Sky, now: Date) -> WeatherSnapshot {

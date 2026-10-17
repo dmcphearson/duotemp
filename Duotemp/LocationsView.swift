@@ -14,21 +14,20 @@ struct LocationsView: View {
         NavigationStack(path: $path) {
             List {
                 Section {
-                    currentLocationRow
-                    ForEach(model.locations) { location in
-                        let key = location.id.uuidString
-                        card(key: key) {
-                            LocationRow(
-                                name: location.name,
-                                tag: nil,
-                                snapshot: model.snapshots[key],
-                                failed: model.failed.contains(key),
-                                lead: model.lead
-                            )
+                    #if DEBUG
+                    if Self.screenshotCities {
+                        ForEach(Array(SampleSkies.cityKeys.enumerated()), id: \.element) { index, key in
+                            let snapshot = SampleSkies.snapshot(for: key)
+                            card(key: key, snapshot: snapshot) {
+                                LocationRow(name: snapshot?.placeName ?? key, tag: index == 0 ? "My Location" : nil, snapshot: snapshot, failed: false, lead: model.lead)
+                            }
                         }
+                    } else {
+                        realLocations
                     }
-                    .onDelete(perform: model.delete)
-                    .onMove(perform: model.move)
+                    #else
+                    realLocations
+                    #endif
                 } header: {
                     // In the list rather than the bar, so the title lines up with the text on the cards.
                     Text("duoTemp")
@@ -48,7 +47,7 @@ struct LocationsView: View {
                 .listRowSeparator(.hidden)
 
                 #if DEBUG
-                if model.showsSampleSkies {
+                if model.showsSampleSkies && !Self.screenshotCities {
                     Section("Sample skies") {
                         ForEach(SampleSkies.keys, id: \.self) { key in
                             let snapshot = SampleSkies.snapshot(for: key)
@@ -119,8 +118,36 @@ struct LocationsView: View {
         .tint(Theme.accent)
     }
 
+    /// My Location and the saved places.
+    @ViewBuilder
+    private var realLocations: some View {
+        currentLocationRow
+        ForEach(model.locations) { location in
+            let key = location.id.uuidString
+            card(key: key) {
+                LocationRow(
+                    name: location.name,
+                    tag: nil,
+                    snapshot: model.snapshots[key],
+                    failed: model.failed.contains(key),
+                    lead: model.lead
+                )
+            }
+        }
+        .onDelete(perform: model.delete)
+        .onMove(perform: model.move)
+    }
+
+    #if DEBUG
+    /// `-screenshotCities YES`: the list shows `SampleSkies` cities instead, for App Store screenshots.
+    private static var screenshotCities: Bool { UserDefaults.standard.bool(forKey: "screenshotCities") }
+    #endif
+
     /// Every card's key in list order, for paging between locations.
     private var pageKeys: [String] {
+        #if DEBUG
+        if Self.screenshotCities { return SampleSkies.cityKeys }
+        #endif
         var keys: [String] = []
         if model.authorization.isAuthorized { keys.append(SharedStore.currentLocationKey) }
         keys += model.locations.map(\.id.uuidString)
@@ -151,9 +178,16 @@ struct LocationsView: View {
         }
     }
 
+    private var firstSnapshot: WeatherSnapshot? {
+        #if DEBUG
+        if Self.screenshotCities { return SampleSkies.cityKeys.first.flatMap { SampleSkies.snapshot(for: $0) } }
+        #endif
+        return model.snapshots[SharedStore.currentLocationKey] ?? model.locations.first.flatMap { model.snapshots[$0.id.uuidString] }
+    }
+
     @ViewBuilder
     private var weatherBackground: some View {
-        let first = model.snapshots[SharedStore.currentLocationKey] ?? model.locations.first.flatMap { model.snapshots[$0.id.uuidString] }
+        let first = firstSnapshot
         if let first {
             SkyStyle(hour: first.now(at: .now)).gradient
                 .overlay(Theme.background.opacity(0.72))

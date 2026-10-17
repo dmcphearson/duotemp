@@ -93,9 +93,9 @@ final class LocationsModel {
     /// What the detail screen needs to load a row: "current" uses the last fix.
     func target(for key: String) -> DetailTarget? {
         #if DEBUG
-        if SampleSkies.isSample(key), let name = SampleSkies.name(for: key) {
-            // Dublin, so samples show the northern lights card with the live Kp forecast.
-            return DetailTarget(key: key, name: name, latitude: 53.35, longitude: -6.26, timeZoneID: TimeZone.current.identifier)
+        if SampleSkies.isSample(key), let name = SampleSkies.name(for: key), let place = SampleSkies.coordinate(for: key) {
+            // Samples sit in Dublin unless they name a city, so the northern lights card shows with the live Kp forecast.
+            return DetailTarget(key: key, name: name, latitude: place.latitude, longitude: place.longitude, timeZoneID: TimeZone.current.identifier)
         }
         #endif
         if key == SharedStore.currentLocationKey {
