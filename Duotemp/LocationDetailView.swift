@@ -35,11 +35,21 @@ struct LocationDetailView: View {
             }
             .padding(16)
         }
+        .defaultScrollAnchor(Self.startsAtBottom ? .bottom : .top)
         .foregroundStyle(.white)
         .environment(\.rainIntensity, currentHour.flatMap { RainIntensity(symbolName: $0.symbolName) })
         .environment(\.rainSlant, currentHour.map { SkyScene.slant(windSpeed: $0.windSpeed, from: $0.windFromDirection) } ?? -0.15)
         .task { await load() }
         .refreshable { await load() }
+    }
+
+    /// Screenshots: `-scrollToBottom YES` opens the screen scrolled to its tiles. Always false in release builds.
+    private static var startsAtBottom: Bool {
+        #if DEBUG
+        UserDefaults.standard.bool(forKey: "scrollToBottom")
+        #else
+        false
+        #endif
     }
 
     private var currentHour: WeatherSnapshot.Hour? {

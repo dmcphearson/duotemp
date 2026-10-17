@@ -5,12 +5,13 @@ struct LocationsView: View {
     @State private var model = LocationsModel()
     @State private var isAdding = false
     @State private var isShowingSettings = false
+    @State private var path: [String] = []
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @AppStorage(ListBackground.storageKey) private var listBackground = ListBackground.weather
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             List {
                 Section {
                     currentLocationRow
@@ -102,6 +103,12 @@ struct LocationsView: View {
             .sheet(isPresented: $isShowingSettings) {
                 SettingsView(model: model)
             }
+            #if DEBUG
+            // Screenshots: `-openLocation sample.thunderstorm` opens that place's screen at launch.
+            .onAppear {
+                if path.isEmpty, let key = UserDefaults.standard.string(forKey: "openLocation") { path = [key] }
+            }
+            #endif
             .refreshable { await model.refresh() }
             .onChange(of: scenePhase, initial: true) {
                 if scenePhase == .active {
