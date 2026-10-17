@@ -376,33 +376,55 @@ private struct Decor {
     }
 
     /// Soft layered clouds: a flat base with three puffs, blurred.
-    /// Each cloud's base line (`x`, `y`) and width, drifting with `time`; seeded on its own so the
-    /// lightning layer gets the same clouds as the backdrop.
-    private func cloudLayout(size: CGSize, unit: CGFloat, time: Double?) -> [(x: CGFloat, y: CGFloat, width: CGFloat)] {
+    /// One cloud: its base line's left end (`x`, `y`), width, and the puffs on top, each as a centre along
+    /// the width and a diameter, both as fractions of the width.
+    private struct Cloud {
+        var x: CGFloat
+        var y: CGFloat
+        var width: CGFloat
+        var baseHeight: CGFloat
+        var puffs: [(centre: CGFloat, size: CGFloat)]
+        var opacity: Double
+    }
+
+    /// Clouds drifting with `time`, seeded on their own so the lightning layer gets the same clouds as the backdrop.
+    private func cloudLayout(size: CGSize, unit: CGFloat, time: Double?) -> [Cloud] {
         var random = SeededRandom(state: cloudSeed)
         // Within the top of a tall sky, so the full-screen sky keeps its clouds overhead rather than behind the cards.
         let band = min(size.height, unit * 1.2)
-        // Each cloud gets its own cell in a grid that runs a little past both edges, with the second row
-        // shifted half a cell; jitter inside the cell keeps it loose without clouds piling into one shape.
+        // Each cloud starts from its own cell in a grid that runs past both edges, so they don't pile into one
+        // shape; generous jitter, sizes and shapes keep the grid from showing.
         let rows = clouds > 2 ? 2 : 1
         let columns = (clouds + rows - 1) / rows
         let span = size.width * 1.1
         let cellWidth = span / CGFloat(columns)
         let cellHeight = band * 0.6 / CGFloat(rows)
+        let stagger = cellWidth * .random(in: 0.3...0.7, using: &random)
         var cells = Array(0..<(rows * columns))
         cells.shuffle(using: &random)
         return (0..<clouds).map { index in
             let row = cells[index] / columns
             let column = cells[index] % columns
-            let width = min(cellWidth * .random(in: 0.8...1.0, using: &random), size.width * 0.75, unit * 1.6)
+            let width = min(cellWidth * .random(in: 0.55...1.05, using: &random), size.width * 0.75, unit * 1.6)
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
-            let stagger = row == 1 ? cellWidth * 0.5 : 0
-            let centre = (cellWidth * (CGFloat(column) + 0.5) + stagger).truncatingRemainder(dividingBy: span) - size.width * 0.05
-                + cellWidth * .random(in: -0.12...0.12, using: &random)
-            let x = centre - width / 2 + width * 0.07 * drift
+            let centre = (cellWidth * (CGFloat(column) + 0.5) + (row == 1 ? stagger : 0)).truncatingRemainder(dividingBy: span)
+                - size.width * 0.05 + cellWidth * .random(in: -0.28...0.28, using: &random)
             // The base line sits below the puffs, so a cloud's middle is about a tenth of its width above it.
-            let y = band * 0.1 + cellHeight * (CGFloat(row) + 0.5 + .random(in: -0.2...0.2, using: &random)) + width * 0.1
-            return (x, y, width)
+            let y = band * 0.1 + cellHeight * (CGFloat(row) + 0.5 + .random(in: -0.35...0.35, using: &random)) + width * 0.1
+
+            // Three or four puffs spread along the top, the tallest somewhere near the middle.
+            let count = Int.random(in: 3...4, using: &random)
+            let peak = Int.random(in: 1..<count, using: &random)
+            let puffs: [(CGFloat, CGFloat)] = (0..<count).map { puff in
+                let along = 0.18 + 0.64 * CGFloat(puff) / CGFloat(count - 1) + .random(in: -0.06...0.06, using: &random)
+                let size: CGFloat = puff == peak ? .random(in: 0.4...0.5, using: &random) : .random(in: 0.24...0.36, using: &random)
+                return (along, size)
+            }
+            return Cloud(
+                x: centre - width / 2 + width * 0.07 * drift, y: y, width: width,
+                baseHeight: .random(in: 0.18...0.24, using: &random), puffs: puffs,
+                opacity: .random(in: 0.8...1.1, using: &random)
+            )
         }
     }
 
@@ -410,16 +432,20 @@ private struct Decor {
         guard clouds > 0 else { return }
         let dayOpacity = clouds > 2 ? 0.12 : 0.16
         let opacity = 0.07 + (dayOpacity - 0.07) * daylight
-        for (x, y, width) in cloudLayout(size: size, unit: unit, time: time) {
+        for cloud in cloudLayout(size: size, unit: unit, time: time) {
+            let width = cloud.width
+            let base = width * cloud.baseHeight
             // One blurred shape keeps the cloud even; soft-edged parts would build up where they overlap.
-            var cloud = Path()
-            cloud.addRoundedRect(in: CGRect(x: x, y: y, width: width, height: width * 0.22), cornerSize: CGSize(width: width * 0.11, height: width * 0.11))
-            cloud.addEllipse(in: CGRect(x: x + width * 0.1, y: y - width * 0.14, width: width * 0.34, height: width * 0.34))
-            cloud.addEllipse(in: CGRect(x: x + width * 0.32, y: y - width * 0.26, width: width * 0.46, height: width * 0.46))
-            cloud.addEllipse(in: CGRect(x: x + width * 0.62, y: y - width * 0.1, width: width * 0.3, height: width * 0.3))
+            var shape = Path()
+            shape.addRoundedRect(in: CGRect(x: cloud.x, y: cloud.y, width: width, height: base), cornerSize: CGSize(width: base / 2, height: base / 2))
+            for puff in cloud.puffs {
+                let diameter = width * puff.size
+                // Each puff sits with its lower part sunk into the base.
+                shape.addEllipse(in: CGRect(x: cloud.x + width * puff.centre - diameter / 2, y: cloud.y + base * 0.6 - diameter, width: diameter, height: diameter))
+            }
             context.drawLayer { layer in
                 layer.addFilter(.blur(radius: width * 0.035))
-                layer.fill(cloud, with: .color(.white.opacity(opacity)))
+                layer.fill(shape, with: .color(.white.opacity(opacity * cloud.opacity)))
             }
         }
     }
