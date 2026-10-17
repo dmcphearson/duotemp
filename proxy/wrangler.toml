@@ -1,0 +1,6 @@
+name = "duotemp-proxy"
+main = "src/index.mjs"
+compatibility_date = "2026-09-01"
+# Served only at api.trough.dev; no workers.dev address.
+workers_dev = false
+routes = [{ pattern = "api.trough.dev", custom_domain = true }]
