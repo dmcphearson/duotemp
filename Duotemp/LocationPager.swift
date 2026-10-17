@@ -66,7 +66,7 @@ extension LocationPager {
                 // The moon sits right of the temperature, below the navigation bar.
                 SkyScene(
                     hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
-                    moonAnchor: UnitPoint(x: 0.86, y: 0.2), animated: animation.animatesDetail
+                    moonAnchor: UnitPoint(x: 0.86, y: 0.17), animated: animation.animatesDetail
                 )
                     .id(selection)
                     .transition(.opacity)
