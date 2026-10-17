@@ -73,7 +73,8 @@ struct SkyScene: View {
 }
 
 private struct Decor {
-    enum Precipitation { case rain(heavy: Bool), snow }
+    enum RainAmount { case drizzle, rain, heavy }
+    enum Precipitation { case rain(RainAmount), snow }
 
     var sun = false
     var moon = false
@@ -101,7 +102,9 @@ private struct Decor {
         if !parts.isDisjoint(with: ["snow", "sleet", "hail", "snowflake"]) {
             precipitation = .snow
         } else if !parts.isDisjoint(with: ["rain", "drizzle", "heavyrain", "bolt"]) {
-            precipitation = .rain(heavy: parts.contains("heavyrain") || parts.contains("bolt"))
+            precipitation = .rain(
+                parts.contains("heavyrain") || parts.contains("bolt") ? .heavy : (parts.contains("drizzle") ? .drizzle : .rain)
+            )
         }
         if fog {
             clouds = 0
@@ -151,7 +154,7 @@ private struct Decor {
         drawClouds(in: &context, size: size, unit: unit, time: time, random: &random)
         if storm { drawLightning(in: &context, size: size, unit: unit, time: time, random: &random) }
         switch precipitation {
-        case .rain(let heavy): drawRain(in: &context, size: size, unit: unit, heavy: heavy, time: time, random: &random)
+        case .rain(let amount): drawRain(in: &context, size: size, unit: unit, amount: amount, time: time, random: &random)
         case .snow: drawSnow(in: &context, size: size, time: time, random: &random)
         case nil: break
         }
@@ -279,12 +282,17 @@ private struct Decor {
         }
     }
 
-    private func drawRain(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, heavy: Bool, time: Double?, random: inout SeededRandom) {
-        let count = Int(min(size.width * size.height / (heavy ? 450 : 800), 600))
-        let speed: CGFloat = heavy ? 340 : 240
+    /// Slanted streaks; drizzle is sparse, short, faint and slow, heavy rain dense and fast.
+    private func drawRain(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, amount: RainAmount, time: Double?, random: inout SeededRandom) {
+        let (areaPerDrop, lengths, maxLength, speed, opacity): (CGFloat, ClosedRange<CGFloat>, CGFloat, CGFloat, Double) = switch amount {
+        case .drizzle: (2400, 0.02...0.04, 8, 140, 0.15)
+        case .rain: (800, 0.04...0.08, 16, 240, 0.2)
+        case .heavy: (450, 0.04...0.08, 16, 340, 0.28)
+        }
+        let count = Int(min(size.width * size.height / areaPerDrop, 600))
         var streaks = Path()
         for _ in 0..<count {
-            let length = min(unit * .random(in: 0.04...0.08, using: &random), 16)
+            let length = min(unit * .random(in: lengths, using: &random), maxLength)
             var start = CGPoint(x: .random(in: 0...size.width + 10, using: &random), y: .random(in: -10...size.height, using: &random))
             let pace = CGFloat.random(in: 0.85...1.15, using: &random)
             if let time {
@@ -296,7 +304,7 @@ private struct Decor {
             streaks.move(to: start)
             streaks.addLine(to: CGPoint(x: start.x - length * 0.22, y: start.y + length))
         }
-        context.stroke(streaks, with: .color(.white.opacity(heavy ? 0.28 : 0.2)), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+        context.stroke(streaks, with: .color(.white.opacity(opacity)), style: StrokeStyle(lineWidth: amount == .drizzle ? 0.75 : 1, lineCap: .round))
     }
 
     private func drawSnow(in context: inout GraphicsContext, size: CGSize, time: Double?, random: inout SeededRandom) {
