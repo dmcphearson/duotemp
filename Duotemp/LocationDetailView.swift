@@ -8,7 +8,6 @@ struct LocationDetailView: View {
     @State private var errorMessage: String?
     @State private var kp: KpForecast?
     @State private var kpFailed = false
-    @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     private var lead: LeadUnit { model.lead }
 
@@ -37,7 +36,6 @@ struct LocationDetailView: View {
         .foregroundStyle(.white)
         .environment(\.rainIntensity, currentHour.flatMap { RainIntensity(symbolName: $0.symbolName) })
         .environment(\.rainSlant, currentHour.map { SkyScene.slant(windSpeed: $0.windSpeed, from: $0.windFromDirection) } ?? -0.15)
-        .background { sky.ignoresSafeArea() }
         .safeAreaInset(edge: .bottom) {
             if let detail {
                 AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
@@ -50,17 +48,6 @@ struct LocationDetailView: View {
 
     private var currentHour: WeatherSnapshot.Hour? {
         (detail?.snapshot ?? model.snapshots[target.key])?.now(at: .now)
-    }
-
-    /// The sky for the hour on screen, matching the widget and list card.
-    @ViewBuilder
-    private var sky: some View {
-        if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
-            let now = snapshot.now(at: .now)
-            SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: animation.animatesDetail)
-        } else {
-            Theme.background
-        }
     }
 
     private func load() async {

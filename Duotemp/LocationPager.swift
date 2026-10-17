@@ -5,6 +5,7 @@ struct LocationPager: View {
     let keys: [String]
     let model: LocationsModel
     @State private var selection: String
+    @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     init(keys: [String], start: String, model: LocationsModel) {
         self.keys = keys.contains(start) ? keys : [start]
@@ -27,7 +28,9 @@ struct LocationPager: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .ignoresSafeArea(edges: .bottom)
-        .background(Theme.background.ignoresSafeArea())
+        // The sky sits behind the pager, not each page, so it runs up under the navigation bar.
+        .background { sky.ignoresSafeArea() }
+        .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle(model.target(for: selection)?.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -43,6 +46,30 @@ struct LocationPager: View {
                 }
             }
         }
+    }
+}
+
+extension LocationPager {
+    /// The selected place's sky for the hour on screen; it crossfades as you swipe to the next place.
+    private var sky: some View {
+        ZStack {
+            if let snapshot = snapshot(for: selection) {
+                let now = snapshot.now(at: .now)
+                SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: animation.animatesDetail)
+                    .id(selection)
+                    .transition(.opacity)
+            } else {
+                Theme.background
+            }
+        }
+        .animation(.easeInOut(duration: 0.35), value: selection)
+    }
+
+    private func snapshot(for key: String) -> WeatherSnapshot? {
+        #if DEBUG
+        if let sample = SampleSkies.snapshot(for: key) { return sample }
+        #endif
+        return model.snapshots[key]
     }
 }
 
