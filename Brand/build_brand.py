@@ -142,8 +142,9 @@ class Face:
         return " ".join(p for p in parts if p), x
 
 
-def lockup_svg(text_colour, label_colour, title):
-    """Icon, then duoTemp in light and semibold with WEATHER spaced out beneath; transparent background."""
+def lockup_svg(text_colour, label_colour, title, background=None):
+    """Icon, then duoTemp in light and semibold with WEATHER spaced out beneath. Transparent by default;
+    with a background it sits centred on a padded panel, the icon lifted by a soft shadow."""
     light, semibold, medium = Face(300), Face(600), Face(500)
     icon, gap, size = 96, 24, 60
     word_x = icon + gap
@@ -152,16 +153,27 @@ def lockup_svg(text_colour, label_colour, title):
     # The weight change leaves a gap after "duo"; close it so the name reads as one word.
     temp, end = semibold.outline("Temp", x - size * 0.03, baseline, size, -0.02)
     label, label_end = medium.outline("WEATHER", word_x + 3, baseline + 26, 15, 0.42)
-    width = math.ceil(max(end, label_end))
-    height = icon
+    content_width = math.ceil(max(end, label_end))
+    pad_x, pad_y = (64, 40) if background else (0, 0)
+    width, height = content_width + pad_x * 2, icon + pad_y * 2
+    panel, shadow, lift = "", "", ""
+    if background:
+        panel = f'<rect width="{width}" height="{height}" fill="{background}"/>'
+        shadow = (
+            '<filter id="lift" x="-30%" y="-30%" width="160%" height="170%">'
+            '<feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/></filter>'
+        )
+        lift = ' filter="url(#lift)"'
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">'
         f"<title>{title}</title>"
-        f'<clipPath id="corner"><rect width="100" height="100" rx="{CORNER}"/></clipPath>'
-        f'<g transform="scale({icon / 100})" clip-path="url(#corner)">{icon_body("light", "i")}</g>'
+        f'<defs><clipPath id="corner"><rect width="100" height="100" rx="{CORNER}"/></clipPath>{shadow}</defs>'
+        f"{panel}"
+        f'<g transform="translate({pad_x} {pad_y})">'
+        f'<g{lift}><g transform="scale({icon / 100})" clip-path="url(#corner)">{icon_body("light", "i")}</g></g>'
         f'<path d="{duo} {temp}" fill="{text_colour}"/>'
         f'<path d="{label}" fill="{label_colour}"/>'
-        "</svg>\n"
+        "</g></svg>\n"
     )
 
 
@@ -172,6 +184,8 @@ def main():
     (OUT / "duotemp-icon-rounded.svg").write_text(icon_svg("light", 512, rounded=True))
     (OUT / "duotemp-lockup-on-dark.svg").write_text(lockup_svg(CREAM, AMBER, "duoTemp Weather"))
     (OUT / "duotemp-lockup-on-light.svg").write_text(lockup_svg(NAVY, DEEP_AMBER, "duoTemp Weather"))
+    (OUT / "duotemp-lockup-dark.svg").write_text(lockup_svg(CREAM, AMBER, "duoTemp Weather", background=NAVY))
+    (OUT / "duotemp-lockup-light.svg").write_text(lockup_svg(NAVY, DEEP_AMBER, "duoTemp Weather", background=CREAM))
     print(f"[duotemp] Wrote brand SVGs to {OUT}")
 
 
