@@ -149,26 +149,43 @@ struct LocationDetailView: View {
         let timeZone = detail.snapshot.timeZone
         return LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
             if let speed = c.windSpeed {
-                Tile(title: "Wind", value: Units.wind(speed, lead: lead), caption: windCaption(c))
+                ConditionTile(title: "Wind", symbol: "wind", value: Units.wind(speed, lead: lead), caption: windCaption(c)) {
+                    WindCompass(
+                        direction: c.windDirection,
+                        speed: "\(Int((speed * (lead == .celsius ? 3.6 : 2.23694)).rounded()))",
+                        unit: lead == .celsius ? "km/h" : "mph"
+                    )
+                }
             }
             if let humidity = c.humidity {
-                Tile(title: "Humidity", value: Units.percent(humidity), caption: c.dewPoint.map { "Dew point \($0.pair(lead: lead))" })
+                ConditionTile(title: "Humidity", symbol: "humidity", value: Units.percent(humidity), caption: c.dewPoint.map { "Dew point \($0.pair(lead: lead))" }) {
+                    HumidityRing(fraction: humidity)
+                }
             }
             if let uv = c.uvIndex {
-                Tile(title: "UV index", value: "\(uv)", caption: detail.sources[.uv] == .yr ? "Clear-sky maximum" : nil)
+                ConditionTile(title: "UV index", symbol: "sun.max", value: uvAdvice(uv), caption: detail.sources[.uv] == .yr ? "Clear-sky maximum" : nil) {
+                    UVScale(index: uv)
+                }
             }
             if let pressure = c.pressure {
-                Tile(title: "Pressure", value: Units.pressure(pressure, lead: lead), caption: nil)
+                ConditionTile(title: "Pressure", symbol: "gauge.with.dots.needle.50percent", value: Units.pressure(pressure, lead: lead)) {
+                    PressureDial(hectopascals: pressure, trend: c.pressureTrend)
+                }
             }
             if let visibility = c.visibility {
-                Tile(title: "Visibility", value: Units.visibility(visibility, lead: lead), caption: nil)
+                ConditionTile(title: "Visibility", symbol: "eye", value: Units.visibility(visibility, lead: lead)) {
+                    VisibilityScale(metres: visibility)
+                }
             }
             if c.sunrise != nil || c.sunset != nil {
-                Tile(
-                    title: "Sunrise and sunset",
-                    value: [c.sunrise, c.sunset].map { $0.map { $0.formatted(timeStyle(timeZone)) } ?? "—" }.joined(separator: " · "),
-                    caption: nil
-                )
+                ConditionTile(
+                    title: "Sun",
+                    symbol: "sunrise",
+                    value: "↑ \(c.sunrise.map { $0.formatted(timeStyle(timeZone)) } ?? "—")   ↓ \(c.sunset.map { $0.formatted(timeStyle(timeZone)) } ?? "—")",
+                    caption: daylightCaption(c)
+                ) {
+                    DaylightArc(sunrise: c.sunrise, sunset: c.sunset, now: .now, timeZone: timeZone)
+                }
             }
         }
     }
@@ -178,6 +195,16 @@ struct LocationDetailView: View {
         if let direction = c.windDirection { parts.append("From \(Units.compass(direction))") }
         if let gust = c.windGust { parts.append("Gusts \(Units.wind(gust, lead: lead))") }
         return parts.isEmpty ? nil : parts.joined(separator: "\n")
+    }
+
+    private func uvAdvice(_ index: Int) -> String {
+        index >= 3 ? "Sun protection advised" : "No protection needed"
+    }
+
+    private func daylightCaption(_ c: ForecastDetail.Conditions) -> String? {
+        guard let sunrise = c.sunrise, let sunset = c.sunset, sunset > sunrise else { return nil }
+        let minutes = Int(sunset.timeIntervalSince(sunrise) / 60)
+        return "\(minutes / 60)h \(minutes % 60)m of daylight"
     }
 
     // MARK: - Formatting in the location's time zone
@@ -217,33 +244,6 @@ private struct Card<Content: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
-    }
-}
-
-private struct Tile: View {
-    let title: String
-    let value: String
-    let caption: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(SkyStyle.secondary)
-            Text(value)
-                .font(.headline)
-                .minimumScaleFactor(0.8)
-            if let caption {
-                Text(caption)
-                    .font(.caption)
-                    .foregroundStyle(SkyStyle.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-        .accessibilityElement(children: .combine)
     }
 }
 

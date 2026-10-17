@@ -17,7 +17,8 @@ extension METForecast {
                     temperature: DualTemp(celsius: step.data.instant.details.airTemperature),
                     symbolName: METSymbol(code: period.summary.symbolCode).symbolName,
                     precipitationMM: period.details?.precipitationAmount,
-                    precipitationChance: nil
+                    precipitationChance: nil,
+                    cloudCover: step.data.instant.details.cloudAreaFraction.map { $0 / 100 }
                 )
             }
 
@@ -54,13 +55,23 @@ extension METForecast {
             )
         }
 
-        let details = (steps.last { $0.time <= now } ?? steps.first)?.data.instant.details
+        let currentStep = steps.last { $0.time <= now } ?? steps.first
+        let details = currentStep?.data.instant.details
+        // Trend over the next three hours of forecast, as barometers report the last three.
+        let later = currentStep.flatMap { current in
+            steps.first { $0.time >= current.time.addingTimeInterval(3 * 3600) }?.data.instant.details.airPressureAtSeaLevel
+        }
+        var trend: ForecastDetail.PressureTrend?
+        if let pressure = details?.airPressureAtSeaLevel, let later {
+            trend = later - pressure > 1 ? .rising : (pressure - later > 1 ? .falling : .steady)
+        }
         let conditions = ForecastDetail.Conditions(
             windSpeed: details?.windSpeed,
             windDirection: details?.windFromDirection,
             humidity: details?.relativeHumidity.map { $0 / 100 },
             uvIndex: details?.ultravioletIndexClearSky.map { Int($0.rounded()) },
             pressure: details?.airPressureAtSeaLevel,
+            pressureTrend: trend,
             dewPoint: details?.dewPointTemperature.map { DualTemp(celsius: $0) }
         )
 

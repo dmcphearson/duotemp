@@ -25,7 +25,8 @@ enum AppleWeatherClient {
                 temperature: DualTemp(hour.temperature),
                 symbolName: hour.symbolName,
                 precipitationMM: hour.precipitationAmount.converted(to: .millimeters).value,
-                precipitationChance: hour.precipitationChance
+                precipitationChance: hour.precipitationChance,
+                cloudCover: hour.cloudCover
             )
         }
         let days = daily.forecast.prefix(10).map { day in
@@ -46,6 +47,7 @@ enum AppleWeatherClient {
             humidity: current.humidity,
             uvIndex: current.uvIndex.value,
             pressure: current.pressure.converted(to: .hectopascals).value,
+            pressureTrend: pressureTrend(current.pressureTrend),
             dewPoint: DualTemp(current.dewPoint),
             visibility: current.visibility.converted(to: .meters).value,
             sunrise: today?.sun.sunrise,
@@ -58,6 +60,14 @@ enum AppleWeatherClient {
         if conditions.sunrise == nil, conditions.sunset == nil { sources[.sun] = nil }
 
         return ForecastDetail(snapshot: snapshot, hours: hours, days: Array(days), conditions: conditions, sources: sources)
+    }
+
+    private static func pressureTrend(_ trend: PressureTrend) -> ForecastDetail.PressureTrend {
+        switch trend {
+        case .rising: .rising
+        case .falling: .falling
+        default: .steady
+        }
     }
 
     private static func makeSnapshot(

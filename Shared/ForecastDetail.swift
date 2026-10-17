@@ -11,6 +11,8 @@ struct ForecastDetail: Sendable {
         let precipitationMM: Double?
         /// 0...1
         var precipitationChance: Double?
+        /// 0...1
+        var cloudCover: Double? = nil
     }
 
     struct Day: Sendable, Identifiable {
@@ -37,11 +39,16 @@ struct ForecastDetail: Sendable {
         var uvIndex: Int?
         /// Hectopascals at sea level.
         var pressure: Double?
+        var pressureTrend: PressureTrend?
         var dewPoint: DualTemp?
         /// Metres.
         var visibility: Double?
         var sunrise: Date?
         var sunset: Date?
+    }
+
+    enum PressureTrend: Sendable {
+        case rising, steady, falling
     }
 
     enum Field: String, CaseIterable, Sendable {

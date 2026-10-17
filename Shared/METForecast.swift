@@ -37,6 +37,8 @@ struct METForecast: Decodable, Sendable {
         let ultravioletIndexClearSky: Double?
         let airPressureAtSeaLevel: Double?
         let dewPointTemperature: Double?
+        /// Percent.
+        let cloudAreaFraction: Double?
     }
 
     struct Period: Decodable, Sendable {
