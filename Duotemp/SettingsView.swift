@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Bindable var model: LocationsModel
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(SplashStyle.storageKey) private var splashStyle = SplashStyle.mist
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
@@ -50,10 +51,15 @@ struct SettingsView: View {
                 #if DEBUG
                 Section {
                     Toggle("Sample skies", isOn: $model.showsSampleSkies)
+                    Picker("Rain on cards", selection: $splashStyle) {
+                        Text("Mist").tag(SplashStyle.mist)
+                        Text("Droplets").tag(SplashStyle.droplets)
+                        Text("Off").tag(SplashStyle.off)
+                    }
                 } header: {
                     Text("Testing")
                 } footer: {
-                    Text("Adds a made-up location for every sky to the list. Debug builds only.")
+                    Text("Sample skies adds a made-up location for every sky to the list. Rain on cards sets how rain meets the detail screen's cards. Debug builds only.")
                 }
                 .listRowBackground(Theme.card)
                 #endif

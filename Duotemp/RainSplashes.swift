@@ -16,6 +16,17 @@ enum RainIntensity: Sendable {
     }
 }
 
+/// How rain meets the cards. Mist is the default; the others can be tried from Settings in debug builds.
+enum SplashStyle: String, CaseIterable, Sendable {
+    /// A thin slanted streak, like the background rain, that dissolves into a soft puff and a glint on the edge.
+    case mist
+    /// Drops that burst into two droplets and leave beads.
+    case droplets
+    case off
+
+    static let storageKey = "splashStyle"
+}
+
 extension EnvironmentValues {
     @Entry var rainIntensity: RainIntensity? = nil
 }
@@ -30,11 +41,12 @@ extension View {
 private struct RainSplashes: ViewModifier {
     @Environment(\.rainIntensity) private var intensity
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(SplashStyle.storageKey) private var style = SplashStyle.mist
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
-            if let intensity {
-                SplashLayer(intensity: intensity, animated: !reduceMotion)
+            if let intensity, style != .off {
+                SplashLayer(intensity: intensity, style: style, animated: !reduceMotion)
                     .frame(height: SplashLayer.height)
                     .offset(y: -SplashLayer.height + SplashLayer.edgeInset)
                     .allowsHitTesting(false)
@@ -51,6 +63,7 @@ private struct SplashLayer: View {
     static let edgeInset: CGFloat = 2
 
     let intensity: RainIntensity
+    let style: SplashStyle
     let animated: Bool
     @State private var seed = UInt64.random(in: 1...UInt64.max)
 
@@ -68,6 +81,10 @@ private struct SplashLayer: View {
         let intensity = intensity
         let seed = seed
         return Canvas { context, size in
+            if style == .mist {
+                drawMist(in: &context, size: size, time: time)
+                return
+            }
             var random = SplitMix(state: seed)
             let edge = size.height - Self.edgeInset
             let perPoint: CGFloat = intensity == .heavy ? 0.045 : 0.025
@@ -105,6 +122,55 @@ private struct SplashLayer: View {
                 let swell = beat < 0.18 ? 0 : beat < 0.21 ? (beat - 0.18) / 0.03 : beat < 0.6 ? 1 - 0.55 * (beat - 0.21) / 0.39 : 0.45 * (1 - (beat - 0.6) / 0.4)
                 context.fill(bead(x: x, edge: edge, stretch: 1 + 0.5 * swell), with: .color(.white.opacity(0.2 + 0.75 * swell)))
             }
+        }
+    }
+
+    /// Streaks slanted like the background rain run into the edge and dissolve into a blurred puff with a
+    /// brief glint along the rim. Nothing shows when still.
+    private func drawMist(in context: inout GraphicsContext, size: CGSize, time: Double?) {
+        guard let time else { return }
+        var random = SplitMix(state: seed)
+        let edge = size.height - Self.edgeInset
+        let heavy = intensity == .heavy
+        let count = max(2, Int(size.width * (heavy ? 0.04 : 0.022)))
+        let periods: ClosedRange<Double> = heavy ? 0.9...1.6 : 1.5...3.2
+        let streakOpacity = heavy ? 0.3 : 0.22
+        var streaks = Path()
+        var puffs: [(Path, Double)] = []
+        var glints: [(Path, Double)] = []
+        for _ in 0..<count {
+            let x = CGFloat.random(in: 10...max(11, size.width - 10), using: &random)
+            let period = Double.random(in: periods, using: &random)
+            let delay = Double.random(in: 0...period, using: &random)
+            let beat = ((time + delay).truncatingRemainder(dividingBy: period)) / period
+            if beat < 0.2 {
+                // Falls down and to the left at the background rain's slant, ending on the edge.
+                let progress = beat / 0.2
+                let bottom = edge - (edge - 2) * (1 - progress)
+                let drift = 0.22 * (edge - bottom)
+                streaks.move(to: CGPoint(x: x + drift + 0.22 * 10, y: bottom - 10))
+                streaks.addLine(to: CGPoint(x: x + drift, y: bottom))
+            } else if beat < 0.5 {
+                let fade = (beat - 0.2) / 0.3
+                let width = 6 + 10 * fade
+                puffs.append((Path(ellipseIn: CGRect(x: x - width / 2, y: edge - 2.5, width: width, height: 3.5)), 0.4 * (1 - fade)))
+                if fade < 0.5 {
+                    var glint = Path()
+                    glint.move(to: CGPoint(x: x - width * 0.6, y: edge))
+                    glint.addLine(to: CGPoint(x: x + width * 0.6, y: edge))
+                    glints.append((glint, 0.35 * (1 - fade * 2)))
+                }
+            }
+        }
+        context.stroke(streaks, with: .color(.white.opacity(streakOpacity)), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+        context.drawLayer { layer in
+            layer.addFilter(.blur(radius: 1.6))
+            for (puff, opacity) in puffs {
+                layer.fill(puff, with: .color(.white.opacity(opacity)))
+            }
+        }
+        for (glint, opacity) in glints {
+            context.stroke(glint, with: .color(.white.opacity(opacity)), lineWidth: 0.75)
         }
     }
 
