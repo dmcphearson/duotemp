@@ -157,15 +157,18 @@ struct LocationsView: View {
         return keys
     }
 
-    /// A tappable card without the list's disclosure chevron, on its sky.
+    /// A tappable card without the list's disclosure chevron, on its sky. It pushes through the path itself,
+    /// once: a hidden NavigationLink behind a list row could fire twice and open the screen a second time.
     private func card<Content: View>(key: String, snapshot: WeatherSnapshot? = nil, @ViewBuilder content: () -> Content) -> some View {
-        content()
-            .background {
-                NavigationLink(value: key) { EmptyView() }
-                    .opacity(0)
-            }
-            .listRowBackground(LocationRow.background(for: snapshot ?? model.snapshots[key]))
-            .listRowInsets(EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18))
+        Button {
+            if path.last != key { path.append(key) }
+        } label: {
+            content()
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(LocationRow.background(for: snapshot ?? model.snapshots[key]))
+        .listRowInsets(EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18))
     }
 
     /// The first card's sky, dimmed, so the screen takes on the weather where you are.
