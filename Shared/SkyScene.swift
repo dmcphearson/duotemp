@@ -104,7 +104,7 @@ private struct Decor {
             precipitation = .rain(heavy: parts.contains("heavyrain") || parts.contains("bolt"))
         }
         if fog {
-            clouds = 1
+            clouds = 0
         } else if parts.contains("cloud") {
             clouds = sun || moon ? 2 : 4
         }
@@ -328,23 +328,32 @@ private struct Decor {
         }
     }
 
-    /// A bolt behind the rain, faint when still. Animated, it flashes with the sky every seven seconds,
-    /// offset per place so storms in different cards don't flash together.
+    /// A faint bolt behind the rain. Animated, it flashes with the sky every seven seconds, offset per
+    /// place so storms in different cards don't flash together, and each flash picks one of three spots
+    /// and a size at random.
     private func drawLightning(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?, random: inout SeededRandom) {
         let offset = Double.random(in: 0...7, using: &random)
-        var bolt = 0.28
+        let spots = [CGPoint(x: 0.6, y: 0.12), CGPoint(x: 0.22, y: 0.2), CGPoint(x: 0.8, y: 0.3)]
+        var bolt = 0.18
         var flash = 0.0
+        var spot = spots[0]
+        var scale: CGFloat = 1
         if let time {
-            let beat = ((time + offset).truncatingRemainder(dividingBy: 7)) / 7
-            bolt = Self.envelope(beat, [(0.86, 0), (0.87, 1), (0.88, 0.15), (0.9, 0.9), (0.93, 0)])
-            flash = Self.envelope(beat, [(0.86, 0), (0.87, 0.38), (0.88, 0.05), (0.9, 0.24), (0.93, 0)])
+            let cycles = (time + offset) / 7
+            let beat = cycles - cycles.rounded(.down)
+            bolt = Self.envelope(beat, [(0.86, 0), (0.87, 0.7), (0.88, 0.1), (0.9, 0.6), (0.93, 0)])
+            flash = Self.envelope(beat, [(0.86, 0), (0.87, 0.3), (0.88, 0.04), (0.9, 0.18), (0.93, 0)])
+            // The same choice for every frame of one flash; a new one for the next.
+            var strike = SeededRandom(state: UInt64(cycles.rounded(.down)) &* 0x9E37_79B9_7F4A_7C15 ^ 0xA5A5)
+            spot = spots[Int.random(in: 0..<spots.count, using: &strike)]
+            scale = .random(in: 0.6...1, using: &strike)
         }
         if flash > 0 {
             context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.84, green: 0.87, blue: 1).opacity(flash)))
         }
         guard bolt > 0 else { return }
-        let height = min(unit * 0.5, 120)
-        let origin = CGPoint(x: size.width * 0.6, y: size.height * 0.12)
+        let height = min(unit * 0.5, 120) * scale
+        let origin = CGPoint(x: size.width * spot.x - height * 0.25, y: size.height * spot.y)
         let points: [(CGFloat, CGFloat)] = [(22, 0), (6, 44), (18, 44), (12, 80), (34, 30), (21, 30), (28, 0)]
         var shape = Path()
         for (index, point) in points.enumerated() {
