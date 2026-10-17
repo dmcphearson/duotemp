@@ -56,7 +56,8 @@ struct AuroraCard: View {
             }
             Text(reason(outlook))
                 .font(.subheadline)
-            Text("Needs Kp \(Self.kpText(outlook.kpNeeded)) or more here")
+            // Under the oval itself any activity will do, so a threshold of 0 isn't worth stating.
+            Text(outlook.kpNeeded < 1 ? "Under the auroral oval: any clear, dark night" : "Needs Kp \(Self.kpText(outlook.kpNeeded)) or more here")
                 .font(.caption)
                 .foregroundStyle(SkyStyle.secondary)
         }
