@@ -28,7 +28,8 @@ struct LocationDetailView: View {
             }
             .padding(16)
         }
-        .background(Theme.background)
+        .foregroundStyle(.white)
+        .background { sky.ignoresSafeArea() }
         .safeAreaInset(edge: .bottom) {
             if let detail {
                 AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
@@ -39,6 +40,16 @@ struct LocationDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }
+    }
+
+    /// The sky for the hour on screen, matching the widget and list card.
+    @ViewBuilder
+    private var sky: some View {
+        if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
+            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName)
+        } else {
+            Theme.background
+        }
     }
 
     private func load() async {
@@ -58,7 +69,7 @@ struct LocationDetailView: View {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 TemperatureText(temperature: now.temperature, unit: lead, size: 64)
                 TemperatureText(temperature: now.temperature, unit: lead.other, size: 34)
-                    .foregroundStyle(Theme.secondary)
+                    .foregroundStyle(SkyStyle.secondary)
             }
             HStack(spacing: 6) {
                 WeatherSymbol(name: now.symbolName, size: 18)
@@ -67,10 +78,9 @@ struct LocationDetailView: View {
             .font(.title3.weight(.semibold))
             Text("Feels \(now.feelsLike.pair(lead: lead))")
                 .font(.headline)
-                .foregroundStyle(Theme.accent)
             Text("H \(snapshot.high.pair(lead: lead))   L \(snapshot.low.pair(lead: lead))")
                 .font(.subheadline)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -84,14 +94,14 @@ struct LocationDetailView: View {
                         VStack(spacing: 6) {
                             Text(index == 0 ? "Now" : hour.date.formatted(hourStyle(detail.snapshot.timeZone)))
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(SkyStyle.secondary)
                             WeatherSymbol(name: hour.symbolName, size: 20)
                                 .frame(height: 24)
                             Text(hour.temperature.degrees(lead))
                                 .font(.headline)
                             Text(hour.temperature.degrees(lead.other))
                                 .font(.subheadline)
-                                .foregroundStyle(Theme.secondary)
+                                .foregroundStyle(SkyStyle.secondary)
                             RainLabel(chance: hour.precipitationChance, millimetres: hour.precipitationMM, lead: lead)
                         }
                         .frame(minWidth: 40)
@@ -108,7 +118,7 @@ struct LocationDetailView: View {
         return Card(title: "\(detail.days.count)-day forecast") {
             VStack(spacing: 0) {
                 ForEach(Array(detail.days.enumerated()), id: \.element.id) { index, day in
-                    if index > 0 { Divider().overlay(Theme.secondary.opacity(0.2)) }
+                    if index > 0 { Divider().overlay(SkyStyle.secondary.opacity(0.2)) }
                     HStack(spacing: 10) {
                         Text(calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone)))
                             .font(.body.weight(.semibold))
@@ -119,11 +129,13 @@ struct LocationDetailView: View {
                             .frame(width: 64, alignment: .leading)
                         Spacer(minLength: 0)
                         Text("L \(day.low.compactPair(lead: lead))")
-                            .foregroundStyle(Theme.secondary)
+                            .foregroundStyle(SkyStyle.secondary)
                         Text("H \(day.high.compactPair(lead: lead))")
                             .fontWeight(.semibold)
                     }
                     .font(.subheadline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                     .padding(.vertical, 10)
                     .accessibilityElement(children: .combine)
                 }
@@ -198,12 +210,12 @@ private struct Card<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
             content
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 }
 
@@ -216,20 +228,20 @@ private struct Tile: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
             Text(value)
                 .font(.headline)
                 .minimumScaleFactor(0.8)
             if let caption {
                 Text(caption)
                     .font(.caption)
-                    .foregroundStyle(Theme.secondary)
+                    .foregroundStyle(SkyStyle.secondary)
             }
             Spacer(minLength: 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
         .accessibilityElement(children: .combine)
     }
 }
