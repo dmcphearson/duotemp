@@ -3,6 +3,11 @@ import Foundation
 /// The parts of a Locationforecast 2.0 "complete" response that duotemp uses.
 /// Decode with `.convertFromSnakeCase` and `.iso8601` dates.
 struct METForecast: Decodable, Sendable {
+    struct Geometry: Decodable, Sendable {
+        /// Longitude, latitude and altitude.
+        let coordinates: [Double]
+    }
+
     struct Properties: Decodable, Sendable {
         let timeseries: [Step]
     }
@@ -49,6 +54,7 @@ struct METForecast: Decodable, Sendable {
         let symbolCode: String
     }
 
+    let geometry: Geometry?
     let properties: Properties
 
     static func decode(_ data: Data) throws -> METForecast {
@@ -60,6 +66,7 @@ struct METForecast: Decodable, Sendable {
 
     func snapshot(placeName: String, timeZoneID: String?, fetchedAt now: Date) throws -> WeatherSnapshot {
         let steps = properties.timeseries.sorted { $0.time < $1.time }
+        let point = geometry?.coordinates
 
         // Hourly steps carry next_1_hours; the long-range tail is 6-hourly and is dropped.
         let hourly: [WeatherSnapshot.Hour] = steps.compactMap { step in
@@ -71,7 +78,8 @@ struct METForecast: Decodable, Sendable {
                 temperature: DualTemp(celsius: details.airTemperature),
                 feelsLike: DualTemp(celsius: details.apparentAirTemperature ?? details.airTemperature),
                 condition: symbol.condition,
-                symbolName: symbol.symbolName
+                symbolName: symbol.symbolName,
+                isDaylight: point.flatMap { $0.count >= 2 ? Solar.isDaylight(at: step.time, latitude: $0[1], longitude: $0[0]) : nil }
             )
         }
         guard let current = hourly.last(where: { $0.date <= now }) ?? hourly.first else {

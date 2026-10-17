@@ -12,7 +12,7 @@ struct WeatherWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(kind: "WeatherWidget", intent: SelectLocationIntent.self, provider: Provider()) { entry in
             WeatherWidgetView(entry: entry)
-                .containerBackground(for: .widget) { WidgetBackground() }
+                .containerBackground(for: .widget) { WidgetBackground(entry: entry) }
         }
         .configurationDisplayName("duotemp Weather")
         .description("Celsius and Fahrenheit together, with feels-like.")

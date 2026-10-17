@@ -9,6 +9,8 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         let condition: String
         /// SF Symbol base name; views apply the fill variant.
         let symbolName: String
+        /// Whether the sun is up; nil in snapshots cached before this was recorded.
+        var isDaylight: Bool? = nil
     }
 
     let placeName: String

@@ -76,7 +76,8 @@ extension WeatherSnapshot {
                 temperature: DualTemp(celsius: celsius),
                 feelsLike: DualTemp(celsius: celsius - 2),
                 condition: condition,
-                symbolName: symbol
+                symbolName: symbol,
+                isDaylight: false
             )
         }
         return WeatherSnapshot(

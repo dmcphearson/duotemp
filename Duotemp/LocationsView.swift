@@ -40,6 +40,7 @@ struct LocationsView: View {
                                 lead: model.lead
                             )
                         }
+                        .listRowBackground(LocationRow.background(for: model.snapshots[key]))
                     }
                     .onDelete(perform: model.delete)
                     .onMove(perform: model.move)
@@ -122,6 +123,7 @@ struct LocationsView: View {
                     failureText: "Couldn't find your location. Pull to retry."
                 )
             }
+            .listRowBackground(LocationRow.background(for: model.snapshots[key]))
         }
     }
 }

@@ -16,14 +16,14 @@ struct LocationRow: View {
                 if let tag {
                     Text(tag)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.accent)
+                        .foregroundStyle(SkyStyle.secondary)
                 }
                 if let snapshot {
                     details(snapshot)
                 } else if failed {
                     Text(failureText)
                         .font(.subheadline)
-                        .foregroundStyle(Theme.secondary)
+                        .foregroundStyle(SkyStyle.secondary)
                 } else {
                     ProgressView()
                         .controlSize(.small)
@@ -35,12 +35,24 @@ struct LocationRow: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     TemperatureText(temperature: temperature, unit: lead, size: 38)
                     TemperatureText(temperature: temperature, unit: lead.other, size: 22)
-                        .foregroundStyle(Theme.secondary)
+                        .foregroundStyle(SkyStyle.secondary)
                 }
             }
         }
         .padding(.vertical, 6)
+        .foregroundStyle(.white)
         .accessibilityElement(children: .combine)
+    }
+
+    /// The sky for the current hour, matching the widget; the plain card until weather loads.
+    /// Apply with `listRowBackground` on the row's NavigationLink, since row traits don't pass through its label.
+    @ViewBuilder
+    static func background(for snapshot: WeatherSnapshot?) -> some View {
+        if let snapshot {
+            SkyStyle(hour: snapshot.now(at: .now)).gradient
+        } else {
+            Theme.card
+        }
     }
 
     @ViewBuilder
@@ -51,15 +63,14 @@ struct LocationRow: View {
             Text(now.condition)
         }
         .font(.subheadline)
-        .foregroundStyle(Theme.secondary)
+        .foregroundStyle(SkyStyle.secondary)
         Text("Feels \(now.feelsLike.pair(lead: lead))")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Theme.accent)
         Text("H \(snapshot.high.pair(lead: lead))  L \(snapshot.low.pair(lead: lead))")
             .font(.caption)
-            .foregroundStyle(Theme.secondary)
+            .foregroundStyle(SkyStyle.secondary)
         Text("\(failed ? "Couldn't refresh · " : "")Updated \(snapshot.fetchedAt, format: .dateTime.hour().minute())")
             .font(.caption2)
-            .foregroundStyle(Theme.secondary)
+            .foregroundStyle(SkyStyle.secondary)
     }
 }

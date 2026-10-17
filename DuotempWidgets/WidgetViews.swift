@@ -27,12 +27,19 @@ struct WeatherWidgetView: View {
     }
 }
 
+/// Home Screen widgets take the sky for the hour on screen; Lock Screen widgets use the system's.
 struct WidgetBackground: View {
     @Environment(\.widgetFamily) private var family
+    let entry: WeatherEntry
 
     var body: some View {
         switch family {
-        case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge: Theme.card
+        case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge:
+            if let snapshot = entry.snapshot {
+                SkyStyle(hour: snapshot.now(at: entry.date)).gradient
+            } else {
+                Theme.card
+            }
         case .accessoryCircular: AccessoryWidgetBackground()
         default: Color.clear
         }
@@ -101,14 +108,14 @@ private struct HourColumn: View {
         VStack(spacing: 3) {
             Text(hour.date, format: Self.hourStyle(timeZone))
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
             WeatherSymbol(name: hour.symbolName, size: 18)
                 .frame(height: 22)
             Text(hour.temperature.degrees(lead))
                 .font(.system(size: 15, weight: .semibold))
             Text(hour.temperature.degrees(lead.other))
                 .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -193,7 +200,7 @@ private struct BigTemps: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             TemperatureText(temperature: temperature, unit: lead, size: leadSize)
             TemperatureText(temperature: temperature, unit: lead.other, size: trailSize)
-                .foregroundStyle(Theme.secondary)
+                .foregroundStyle(SkyStyle.secondary)
         }
         .lineLimit(1)
         .minimumScaleFactor(0.7)
@@ -222,7 +229,6 @@ private struct FeelsLike: View {
     var body: some View {
         Text("Feels \(temperature.pair(lead: lead))")
             .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(Theme.accent)
             .lineLimit(1)
     }
 }
@@ -234,7 +240,7 @@ private struct HighLow: View {
     var body: some View {
         Text("H \(snapshot.high.compactPair(lead: lead))  L \(snapshot.low.compactPair(lead: lead))")
             .font(.system(size: 12))
-            .foregroundStyle(Theme.secondary)
+            .foregroundStyle(SkyStyle.secondary)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
     }

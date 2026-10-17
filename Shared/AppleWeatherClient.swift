@@ -77,7 +77,8 @@ enum AppleWeatherClient {
                     temperature: DualTemp(hour.temperature),
                     feelsLike: DualTemp(hour.apparentTemperature),
                     condition: hour.condition.description,
-                    symbolName: hour.symbolName
+                    symbolName: hour.symbolName,
+                    isDaylight: hour.isDaylight
                 )
             }
         let today = daily.forecast.first
@@ -92,7 +93,8 @@ enum AppleWeatherClient {
                 temperature: DualTemp(current.temperature),
                 feelsLike: DualTemp(current.apparentTemperature),
                 condition: current.condition.description,
-                symbolName: current.symbolName
+                symbolName: current.symbolName,
+                isDaylight: current.isDaylight
             ),
             high: DualTemp(today?.highTemperature ?? current.temperature),
             low: DualTemp(today?.lowTemperature ?? current.temperature),
