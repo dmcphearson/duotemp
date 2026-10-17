@@ -6,6 +6,9 @@ struct LocationsView: View {
     @State private var isAdding = false
     @State private var isShowingSettings = false
     @State private var path: [String] = []
+    #if DEBUG
+    @MainActor private static var openedLaunchLocation = false
+    #endif
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @AppStorage(ListBackground.storageKey) private var listBackground = ListBackground.weather
@@ -103,9 +106,12 @@ struct LocationsView: View {
                 SettingsView(model: model)
             }
             #if DEBUG
-            // Screenshots: `-openLocation sample.thunderstorm` opens that place's screen at launch.
+            // Screenshots: `-openLocation sample.thunderstorm` opens that place's screen at launch. Once only,
+            // or backing out to the list would push it again.
             .onAppear {
-                if path.isEmpty, let key = UserDefaults.standard.string(forKey: "openLocation") { path = [key] }
+                guard !Self.openedLaunchLocation else { return }
+                Self.openedLaunchLocation = true
+                if let key = UserDefaults.standard.string(forKey: "openLocation") { path = [key] }
             }
             #endif
             .refreshable { await model.refresh() }
