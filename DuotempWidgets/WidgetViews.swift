@@ -112,7 +112,8 @@ private struct HourColumn: View {
 
     var body: some View {
         VStack(spacing: 3) {
-            Text(hour.date, format: Self.hourStyle(timeZone))
+            // Text(_:format:) swaps in the device's time zone, so format to a string first.
+            Text(hour.date.formatted(Self.hourStyle(timeZone)))
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(SkyStyle.secondary)
             WeatherSymbol(name: hour.symbolName, size: 18)
