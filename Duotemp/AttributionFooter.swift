@@ -93,7 +93,8 @@ extension View {
             .padding(.top, 12)
             .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: 0x0B1622).opacity(0.92))
+            // As a shape style the fill runs on under the home indicator, as the material it replaced did.
+            .background(Color(hex: 0x0B1622).opacity(0.92), ignoresSafeAreaEdges: .bottom)
             .overlay(alignment: .top) {
                 Rectangle().fill(Theme.secondary.opacity(0.15)).frame(height: 1)
             }
