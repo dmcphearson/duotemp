@@ -103,14 +103,22 @@ struct LocationRow: View {
 
     /// The sky for the current hour, matching the widget; the plain card until weather loads.
     /// Apply with `listRowBackground` on the row, since row traits don't pass through a NavigationLink's label.
-    @ViewBuilder
     static func background(for snapshot: WeatherSnapshot?) -> some View {
+        RowSky(snapshot: snapshot)
+    }
+}
+
+private struct RowSky: View {
+    let snapshot: WeatherSnapshot?
+    @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
+
+    var body: some View {
         if let snapshot {
             // The moon sits in the open band between the name and the condition line, clear of a long name.
             let now = snapshot.now(at: .now)
             SkyScene(
                 hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
-                moonAnchor: UnitPoint(x: 0.52, y: 0.48), animated: true
+                moonAnchor: UnitPoint(x: 0.52, y: 0.48), animated: animation.animatesList
             )
         } else {
             Theme.card

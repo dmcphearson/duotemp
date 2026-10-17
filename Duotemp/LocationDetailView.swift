@@ -6,6 +6,7 @@ struct LocationDetailView: View {
 
     @State private var detail: ForecastDetail?
     @State private var errorMessage: String?
+    @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     private var lead: LeadUnit { model.lead }
 
@@ -38,8 +39,6 @@ struct LocationDetailView: View {
                     .pinnedToBottom()
             }
         }
-        .navigationTitle(target.name)
-        .navigationBarTitleDisplayMode(.inline)
         .task { await load() }
         .refreshable { await load() }
     }
@@ -53,7 +52,7 @@ struct LocationDetailView: View {
     private var sky: some View {
         if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
             let now = snapshot.now(at: .now)
-            SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: true)
+            SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: animation.animatesDetail)
         } else {
             Theme.background
         }

@@ -5,6 +5,8 @@ struct SettingsView: View {
     @Bindable var model: LocationsModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SplashStyle.storageKey) private var splashStyle = SplashStyle.mist
+    @AppStorage(SkyAnimation.storageKey) private var skyAnimation = SkyAnimation.everywhere
+    @AppStorage(ListBackground.storageKey) private var listBackground = ListBackground.weather
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
@@ -39,6 +41,30 @@ struct SettingsView: View {
                     Text("Forecast")
                 } footer: {
                     Text("MET Norway is the default. On a location's detail screen, Apple Weather fills in what MET doesn't forecast, such as chance of rain, gusts and visibility.")
+                }
+                .listRowBackground(Theme.card)
+
+                Section {
+                    Picker("Animated skies", selection: $skyAnimation) {
+                        ForEach(SkyAnimation.allCases, id: \.self) { option in
+                            Text(option.displayName).tag(option)
+                        }
+                    }
+                    Picker("List background", selection: $listBackground) {
+                        ForEach(ListBackground.allCases, id: \.self) { option in
+                            Label {
+                                Text(option.displayName)
+                            } icon: {
+                                swatch(option)
+                            }
+                            .tag(option)
+                        }
+                    }
+                    .pickerStyle(.navigationLink)
+                } header: {
+                    Text("Appearance")
+                } footer: {
+                    Text("Still skies use less battery. Weather tints the list with the sky where you are. Widgets are always still.")
                 }
                 .listRowBackground(Theme.card)
 
@@ -87,5 +113,18 @@ struct SettingsView: View {
             }
         }
         .tint(Theme.accent)
+    }
+
+    @ViewBuilder
+    private func swatch(_ option: ListBackground) -> some View {
+        Group {
+            if let color = option.color {
+                Circle().fill(color)
+            } else {
+                Circle().fill(SkyStyle.clearDay.gradient)
+            }
+        }
+        .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 0.5))
+        .frame(width: 20, height: 20)
     }
 }

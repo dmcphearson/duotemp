@@ -7,6 +7,7 @@ struct LocationsView: View {
     @State private var isShowingSettings = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @AppStorage(ListBackground.storageKey) private var listBackground = ListBackground.weather
 
     var body: some View {
         NavigationStack {
@@ -27,6 +28,15 @@ struct LocationsView: View {
                     }
                     .onDelete(perform: model.delete)
                     .onMove(perform: model.move)
+                } header: {
+                    // In the list rather than the bar, so the title lines up with the text on the cards.
+                    Text("duotemp")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                        .textCase(nil)
+                        .padding(.leading, 2)
+                        .padding(.bottom, 4)
+                        .accessibilityAddTraits(.isHeader)
                 } footer: {
                     if let updated = model.snapshots.values.map(\.fetchedAt).max() {
                         Text("Updated \(updated, format: .dateTime.hour().minute())")
@@ -58,7 +68,11 @@ struct LocationsView: View {
                     .pinnedToBottom()
             }
             .navigationTitle("duotemp")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Color.clear.frame(width: 1, height: 1)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         isShowingSettings = true
@@ -80,11 +94,7 @@ struct LocationsView: View {
                 }
             }
             .navigationDestination(for: String.self) { key in
-                if let target = model.target(for: key) {
-                    LocationDetailView(target: target, model: model)
-                } else {
-                    ContentUnavailableView("Location unavailable", systemImage: "location.slash")
-                }
+                LocationPager(keys: pageKeys, start: key, model: model)
             }
             .sheet(isPresented: $isAdding) {
                 AddLocationView { model.add($0) }
@@ -102,6 +112,17 @@ struct LocationsView: View {
         .tint(Theme.accent)
     }
 
+    /// Every card's key in list order, for paging between locations.
+    private var pageKeys: [String] {
+        var keys: [String] = []
+        if model.authorization.isAuthorized { keys.append(SharedStore.currentLocationKey) }
+        keys += model.locations.map(\.id.uuidString)
+        #if DEBUG
+        if model.showsSampleSkies { keys += SampleSkies.keys }
+        #endif
+        return keys
+    }
+
     /// A tappable card without the list's disclosure chevron, on its sky.
     private func card<Content: View>(key: String, snapshot: WeatherSnapshot? = nil, @ViewBuilder content: () -> Content) -> some View {
         content()
@@ -116,6 +137,15 @@ struct LocationsView: View {
     /// The first card's sky, dimmed, so the screen takes on the weather where you are.
     @ViewBuilder
     private var screenBackground: some View {
+        if let color = listBackground.color {
+            color
+        } else {
+            weatherBackground
+        }
+    }
+
+    @ViewBuilder
+    private var weatherBackground: some View {
         let first = model.snapshots[SharedStore.currentLocationKey] ?? model.locations.first.flatMap { model.snapshots[$0.id.uuidString] }
         if let first {
             SkyStyle(hour: first.now(at: .now)).gradient

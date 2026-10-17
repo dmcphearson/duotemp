@@ -47,10 +47,11 @@ private struct RainSplashes: ViewModifier {
     @Environment(\.rainSlant) private var slant
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(SplashStyle.storageKey) private var style = SplashStyle.mist
+    @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
-            if let intensity, style != .off {
+            if let intensity, style != .off, animation.animatesDetail {
                 SplashLayer(intensity: intensity, style: style, slant: slant, animated: !reduceMotion)
                     .frame(height: SplashLayer.height)
                     .offset(y: -SplashLayer.height + SplashLayer.edgeInset)
