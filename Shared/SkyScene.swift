@@ -380,12 +380,28 @@ private struct Decor {
     /// lightning layer gets the same clouds as the backdrop.
     private func cloudLayout(size: CGSize, unit: CGFloat, time: Double?) -> [(x: CGFloat, y: CGFloat, width: CGFloat)] {
         var random = SeededRandom(state: cloudSeed)
-        return (0..<clouds).map { _ in
-            let width = min(size.width * .random(in: 0.45...0.75, using: &random), unit * 1.6)
+        // Within the top of a tall sky, so the full-screen sky keeps its clouds overhead rather than behind the cards.
+        let band = min(size.height, unit * 1.2)
+        // Each cloud gets its own cell in a grid that runs a little past both edges, with the second row
+        // shifted half a cell; jitter inside the cell keeps it loose without clouds piling into one shape.
+        let rows = clouds > 2 ? 2 : 1
+        let columns = (clouds + rows - 1) / rows
+        let span = size.width * 1.1
+        let cellWidth = span / CGFloat(columns)
+        let cellHeight = band * 0.6 / CGFloat(rows)
+        var cells = Array(0..<(rows * columns))
+        cells.shuffle(using: &random)
+        return (0..<clouds).map { index in
+            let row = cells[index] / columns
+            let column = cells[index] % columns
+            let width = min(cellWidth * .random(in: 0.8...1.0, using: &random), size.width * 0.75, unit * 1.6)
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
-            let x = CGFloat.random(in: -width * 0.3...size.width - width * 0.5, using: &random) + width * 0.07 * drift
-            // Within the top of a tall sky, so the full-screen sky keeps its clouds overhead rather than behind the cards.
-            let y = min(size.height, unit * 1.2) * .random(in: 0.08...0.6, using: &random)
+            let stagger = row == 1 ? cellWidth * 0.5 : 0
+            let centre = (cellWidth * (CGFloat(column) + 0.5) + stagger).truncatingRemainder(dividingBy: span) - size.width * 0.05
+                + cellWidth * .random(in: -0.12...0.12, using: &random)
+            let x = centre - width / 2 + width * 0.07 * drift
+            // The base line sits below the puffs, so a cloud's middle is about a tenth of its width above it.
+            let y = band * 0.1 + cellHeight * (CGFloat(row) + 0.5 + .random(in: -0.2...0.2, using: &random)) + width * 0.1
             return (x, y, width)
         }
     }
