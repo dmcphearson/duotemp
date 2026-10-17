@@ -267,7 +267,7 @@ private struct UnavailableView: View {
         VStack(spacing: 6) {
             Image(systemName: isCurrentLocation ? "location.slash" : "icloud.slash")
                 .font(.title3)
-            Text(isCurrentLocation ? "Open duoTemp Weather to allow location" : "Weather unavailable")
+            Text(isCurrentLocation ? "Open duoTemp to allow location" : "Weather unavailable")
                 .font(.caption)
                 .multilineTextAlignment(.center)
         }

@@ -91,7 +91,7 @@ struct SettingsView: View {
                 #endif
 
                 Section {
-                    LabeledContent("Version", value: version)
+                    LabeledContent("duoTemp Weather", value: version)
                     Link(destination: URL(string: "https://github.com/dmcphearson/duotemp")!) {
                         Label("Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                     }

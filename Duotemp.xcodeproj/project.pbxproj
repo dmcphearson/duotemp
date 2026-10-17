@@ -324,9 +324,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Duotemp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "duoTemp Weather";
+				INFOPLIST_KEY_CFBundleDisplayName = duoTemp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "duoTemp Weather uses your location to show the weather where you are, in the app and in widgets.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "duoTemp uses your location to show the weather where you are, in the app and in widgets.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -353,9 +353,9 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Duotemp/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "duoTemp Weather";
+				INFOPLIST_KEY_CFBundleDisplayName = duoTemp;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.weather";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "duoTemp Weather uses your location to show the weather where you are, in the app and in widgets.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "duoTemp uses your location to show the weather where you are, in the app and in widgets.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
@@ -379,7 +379,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DuotempWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "duoTemp Weather";
+				INFOPLIST_KEY_CFBundleDisplayName = duoTemp;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -402,7 +402,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = DuotempWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "duoTemp Weather";
+				INFOPLIST_KEY_CFBundleDisplayName = duoTemp;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
