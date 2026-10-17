@@ -384,7 +384,8 @@ private struct Decor {
             let width = min(size.width * .random(in: 0.45...0.75, using: &random), unit * 1.6)
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
             let x = CGFloat.random(in: -width * 0.3...size.width - width * 0.5, using: &random) + width * 0.07 * drift
-            let y = size.height * .random(in: 0.08...0.6, using: &random)
+            // Within the top of a tall sky, so the full-screen sky keeps its clouds overhead rather than behind the cards.
+            let y = min(size.height, unit * 1.2) * .random(in: 0.08...0.6, using: &random)
             return (x, y, width)
         }
     }
