@@ -118,7 +118,7 @@ private struct RowSky: View {
             let now = snapshot.now(at: .now)
             SkyScene(
                 hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
-                moonAnchor: UnitPoint(x: 0.52, y: 0.48), animated: animation.animatesList
+                moonAnchor: UnitPoint(x: 0.58, y: 0.42), animated: animation.animatesList
             )
         } else {
             Theme.card

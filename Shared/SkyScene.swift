@@ -169,8 +169,13 @@ private struct Decor {
     var glow = 0.0
     /// 0 new, 0.5 full; see `Lunar`.
     var moonPhase = 0.0
-    /// 1 by day, 0 by night; the sun fades out and the moon and stars fade in between.
+    /// 1 by day, 0 by night; the sun fades out between them.
     var daylight = 1.0
+    /// The sun and moon are never drawn together. The sun shows while it's above the horizon (daylight 0.6),
+    /// fading out over its last degree; below it, the moon and stars start as a faint hint in twilight
+    /// and reach full strength at real dark, 6 degrees down.
+    var sunStrength: Double { min(max((daylight - 0.6) / 0.1, 0), 1) }
+    var night: Double { pow(min(max((0.6 - daylight) / 0.6, 0), 1), 2.5) }
     var slant: CGFloat = 0
     var precipitation: Precipitation?
     var cloudSeed: UInt64 = 0
@@ -183,8 +188,8 @@ private struct Decor {
         let parts = Set(symbolName.split(separator: ".").map(String.init))
         // Clear and partly cloudy skies show the sun by day and the moon and stars by night.
         let clear = parts.contains("sun") || parts.contains("moon")
-        sun = clear && daylight > 0.01
-        moon = clear && daylight < 0.99
+        sun = clear && daylight > 0.6
+        moon = clear && daylight < 0.6
         stars = moon
         fog = !parts.isDisjoint(with: ["fog", "haze", "smoke", "dust"])
         storm = parts.contains("bolt")
@@ -227,7 +232,7 @@ private struct Decor {
         if stars {
             // No stars inside the moon's disc, where its dark part would let them show through.
             context.drawLayer { layer in
-                layer.opacity = 1 - daylight
+                layer.opacity = night
                 if let moonCenter {
                     layer.clip(to: circle(moonCenter, moonRadius(unit) + 1), options: .inverse)
                 }
@@ -236,13 +241,13 @@ private struct Decor {
         }
         if sun {
             context.drawLayer { layer in
-                layer.opacity = daylight
+                layer.opacity = sunStrength
                 drawSun(in: &layer, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit, time: time)
             }
         }
         if let moonCenter {
             context.drawLayer { layer in
-                layer.opacity = 1 - daylight
+                layer.opacity = night
                 drawMoon(in: &layer, at: moonCenter, unit: unit, time: time)
             }
         }
