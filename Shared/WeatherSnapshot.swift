@@ -11,6 +11,8 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         let symbolName: String
         /// Whether the sun is up; nil in snapshots cached before this was recorded.
         var isDaylight: Bool? = nil
+        /// How far the sun is from sunrise (0) to sunset (1); nil at night or when unknown.
+        var sunProgress: Double? = nil
     }
 
     let placeName: String

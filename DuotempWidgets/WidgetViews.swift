@@ -40,7 +40,8 @@ struct WidgetBackground: View {
                 SkyScene(
                     hour: snapshot.now(at: entry.date),
                     place: snapshot.placeName,
-                    celestial: family == .systemMedium ? UnitPoint(x: 0.56, y: 0.08) : UnitPoint(x: 0.95, y: 0.04)
+                    celestial: family == .systemMedium ? UnitPoint(x: 0.56, y: 0.08) : UnitPoint(x: 0.95, y: 0.04),
+                    sunFollowsTime: false
                 )
             } else {
                 Theme.card

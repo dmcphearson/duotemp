@@ -41,6 +41,7 @@ struct LocationRow: View {
         }
         .padding(.vertical, 6)
         .foregroundStyle(.white)
+        .skyTextShadow()
         .accessibilityElement(children: .combine)
     }
 

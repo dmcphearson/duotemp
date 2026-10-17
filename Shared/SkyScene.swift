@@ -6,14 +6,18 @@ import SwiftUI
 struct SkyScene: View {
     let symbolName: String
     let isDaylight: Bool?
+    let sunProgress: Double?
     let seed: UInt64
-    /// Where the sun or moon sits, as a fraction of the size; layouts move it clear of their text.
+    /// Where the moon sits, and the sun when it doesn't follow the time of day, as a fraction of the size.
     let celestial: UnitPoint
 
-    init(hour: WeatherSnapshot.Hour, place: String, celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04)) {
+    /// With `sunFollowsTime`, the sun rises at the left edge and sets at the right; widgets turn it off
+    /// and keep the sun at `celestial`, clear of their text.
+    init(hour: WeatherSnapshot.Hour, place: String, celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04), sunFollowsTime: Bool = true) {
         self.celestial = celestial
         symbolName = hour.symbolName
         isDaylight = hour.isDaylight
+        sunProgress = sunFollowsTime ? hour.sunProgress : nil
         seed = place.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
     }
 
@@ -22,9 +26,10 @@ struct SkyScene: View {
         let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight)
         let seed = seed
         let celestial = celestial
+        let sunProgress = sunProgress
         Canvas { context, size in
             var random = SeededRandom(state: seed)
-            decor.draw(in: &context, size: size, celestial: celestial, random: &random)
+            decor.draw(in: &context, size: size, celestial: celestial, sunProgress: sunProgress, random: &random)
         }
         .background(style.gradient)
         .accessibilityHidden(true)
@@ -61,11 +66,13 @@ private struct Decor {
         }
     }
 
-    func draw(in context: inout GraphicsContext, size: CGSize, celestial: UnitPoint, random: inout SeededRandom) {
+    func draw(in context: inout GraphicsContext, size: CGSize, celestial: UnitPoint, sunProgress: Double?, random: inout SeededRandom) {
         let unit = min(size.width, size.height)
         let anchor = CGPoint(x: celestial.x * size.width, y: celestial.y * size.height)
         if stars { drawStars(in: &context, size: size, random: &random) }
-        if sun { drawSun(in: &context, at: anchor, unit: unit) }
+        if sun {
+            drawSun(in: &context, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit)
+        }
         if moon {
             // Keep the whole crescent on screen.
             let center = CGPoint(x: min(max(anchor.x, unit * 0.18), size.width - unit * 0.18), y: max(anchor.y, unit * 0.16))
@@ -78,6 +85,12 @@ private struct Decor {
         case .snow: drawSnow(in: &context, size: size, random: &random)
         case nil: break
         }
+    }
+
+    /// Along an arc: rising at the left edge, highest at solar noon, setting at the right edge.
+    private func sunPosition(progress: Double, size: CGSize, unit: CGFloat) -> CGPoint {
+        let height = sin(progress * .pi)
+        return CGPoint(x: size.width * progress, y: unit * (0.02 + 0.2 * (1 - height)))
     }
 
     /// Warm glow with faint halo rings.
@@ -99,7 +112,7 @@ private struct Decor {
         }
         context.drawLayer { layer in
             layer.addFilter(.blur(radius: unit * 0.03))
-            layer.fill(circle(center, unit * 0.13), with: .color(.white.opacity(0.9)))
+            layer.fill(circle(center, unit * 0.1), with: .color(.white.opacity(0.8)))
         }
     }
 

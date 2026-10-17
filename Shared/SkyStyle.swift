@@ -39,3 +39,10 @@ enum SkyStyle: String, CaseIterable, Sendable {
     /// Secondary text on any sky background.
     static let secondary = Color.white.opacity(0.82)
 }
+
+extension View {
+    /// A faint shadow that keeps white text readable where it crosses the sun's glow.
+    func skyTextShadow() -> some View {
+        shadow(color: .black.opacity(0.22), radius: 3, y: 1)
+    }
+}

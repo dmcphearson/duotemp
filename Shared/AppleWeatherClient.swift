@@ -6,7 +6,7 @@ enum AppleWeatherClient {
     static func snapshot(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> WeatherSnapshot {
         let location = CLLocation(latitude: latitude, longitude: longitude)
         let (current, hourly, daily) = try await WeatherService.shared.weather(for: location, including: .current, .hourly, .daily)
-        return makeSnapshot(current: current, hourly: hourly, daily: daily, placeName: placeName, timeZoneID: timeZoneID, now: .now)
+        return makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: .now)
     }
 
     static func detail(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> ForecastDetail {
@@ -17,7 +17,7 @@ enum AppleWeatherClient {
             for: location,
             including: .current, .hourly(startDate: start, endDate: start.addingTimeInterval(48 * 3600)), .daily
         )
-        let snapshot = makeSnapshot(current: current, hourly: hourly, daily: daily, placeName: placeName, timeZoneID: timeZoneID, now: now)
+        let snapshot = makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: now)
 
         let hours = hourly.forecast.map { hour in
             ForecastDetail.Hour(
@@ -64,10 +64,13 @@ enum AppleWeatherClient {
         current: CurrentWeather,
         hourly: Forecast<HourWeather>,
         daily: Forecast<DayWeather>,
+        location: CLLocation,
         placeName: String,
         timeZoneID: String?,
         now: Date
     ) -> WeatherSnapshot {
+        let latitude = location.coordinate.latitude
+        let longitude = location.coordinate.longitude
         let hours = hourly.forecast
             .filter { $0.date > now }
             .prefix(12)
@@ -78,7 +81,8 @@ enum AppleWeatherClient {
                     feelsLike: DualTemp(hour.apparentTemperature),
                     condition: hour.condition.description,
                     symbolName: hour.symbolName,
-                    isDaylight: hour.isDaylight
+                    isDaylight: hour.isDaylight,
+                    sunProgress: Solar.dayProgress(at: hour.date, latitude: latitude, longitude: longitude)
                 )
             }
         let today = daily.forecast.first
@@ -94,7 +98,8 @@ enum AppleWeatherClient {
                 feelsLike: DualTemp(current.apparentTemperature),
                 condition: current.condition.description,
                 symbolName: current.symbolName,
-                isDaylight: current.isDaylight
+                isDaylight: current.isDaylight,
+                sunProgress: Solar.dayProgress(at: current.date, latitude: latitude, longitude: longitude)
             ),
             high: DualTemp(today?.highTemperature ?? current.temperature),
             low: DualTemp(today?.lowTemperature ?? current.temperature),

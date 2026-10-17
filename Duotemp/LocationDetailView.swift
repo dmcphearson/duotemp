@@ -84,6 +84,7 @@ struct LocationDetailView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
+        .skyTextShadow()
     }
 
     private func hourlyCard(_ detail: ForecastDetail) -> some View {
