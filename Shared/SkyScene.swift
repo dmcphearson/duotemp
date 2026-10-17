@@ -1,12 +1,5 @@
 import SwiftUI
 
-/// Where storm flashes light up: anywhere in the upper sky, or inside the drawn clouds, moving between them.
-enum LightningStyle: String, CaseIterable {
-    case anywhere, clouds
-
-    static let storageKey = "lightningStyle"
-}
-
 /// A drawn sky: the SkyStyle gradient plus sun, moon and stars, clouds, rain, snow, fog or lightning.
 /// Still by default, for widgets; `animated` adds gentle motion in the app, and Reduce Motion turns it off.
 /// Between forecast hours the sun's height is interpolated, so sunrise, sunset and twilight build
@@ -31,7 +24,6 @@ struct SkyScene: View {
     let slant: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage(LightningStyle.storageKey) private var lightningStyle = LightningStyle.clouds
 
     /// With `sunFollowsTime`, the sun rises at the left edge and sets at the right; widgets turn it off
     /// and keep the sun at `celestial`, clear of their text. Pass the forecast hour after `hour` as `next`
@@ -108,7 +100,6 @@ struct SkyScene: View {
         var decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
         // Both layers place clouds from this, so lightning can find the clouds the backdrop drew.
         decor.cloudSeed = seed ^ 0xC10D_C10D_C10D_C10D
-        decor.lightningStyle = lightningStyle
         let seed = weather ? seed ^ 0x5EED_5EED_5EED_5EED : seed
         let celestial = celestial
         let moonAnchor = moonAnchor
@@ -183,7 +174,6 @@ private struct Decor {
     var slant: CGFloat = 0
     var precipitation: Precipitation?
     var cloudSeed: UInt64 = 0
-    var lightningStyle = LightningStyle.clouds
 
     init(symbolName: String, glow: Double, moonPhase: Double, daylight: Double, slant: CGFloat) {
         self.glow = glow
@@ -567,8 +557,8 @@ private struct Decor {
         )
         let glowOnly = Bool.random(using: &strike)
 
-        // Cloud style: each pulse of the strike lights a different cloud, so a double or flicker hops between them.
-        let layout = lightningStyle == .clouds ? cloudLayout(size: size, unit: unit, time: time) : []
+        // Each pulse of the strike lights a different cloud, so a double or flicker hops between them.
+        let layout = cloudLayout(size: size, unit: unit, time: time)
         let hops = layout.isEmpty ? [] : (0..<3).map { _ in layout[Int.random(in: 0..<layout.count, using: &strike)] }
 
         let t = beat - start
@@ -600,7 +590,7 @@ private struct Decor {
             return
         }
 
-        // Sheet lightning lights the whole sky; cloud lightning lights one patch and only a little of the rest.
+        // No clouds drawn: light the open sky instead, as a whole sheet or one patch.
         context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(tint.opacity(glowOnly ? level * 0.3 : level)))
         let radius = max(size.width, size.height) * (glowOnly ? 0.45 : 0.3)
         softEllipse(

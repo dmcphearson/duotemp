@@ -5,7 +5,6 @@ struct SettingsView: View {
     @Bindable var model: LocationsModel
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SplashStyle.storageKey) private var splashStyle = SplashStyle.mist
-    @AppStorage(LightningStyle.storageKey) private var lightningStyle = LightningStyle.clouds
     @AppStorage(SkyAnimation.storageKey) private var skyAnimation = SkyAnimation.everywhere
     @AppStorage(ListBackground.storageKey) private var listBackground = ListBackground.weather
 
@@ -83,14 +82,10 @@ struct SettingsView: View {
                         Text("Droplets").tag(SplashStyle.droplets)
                         Text("Off").tag(SplashStyle.off)
                     }
-                    Picker("Lightning", selection: $lightningStyle) {
-                        Text("Cloud to cloud").tag(LightningStyle.clouds)
-                        Text("Anywhere").tag(LightningStyle.anywhere)
-                    }
                 } header: {
                     Text("Testing")
                 } footer: {
-                    Text("Sample skies adds a made-up location for every sky to the list. Rain on cards sets how rain meets the detail screen's cards. Lightning sets where storm flashes light up. Debug builds only.")
+                    Text("Sample skies adds a made-up location for every sky to the list. Rain on cards sets how rain meets the detail screen's cards. Debug builds only.")
                 }
                 .listRowBackground(Theme.card)
                 #endif
