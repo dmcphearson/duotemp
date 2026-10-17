@@ -58,6 +58,13 @@ enum SampleSkies {
         Sky(id: "city-oslo", name: "Oslo", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 10, celsius: -4, rainMM: 3, rainChance: 0.95, windSpeed: 9, windFrom: 40, latitude: 59.91, longitude: 10.75),
     ]
 
+    /// The time samples are drawn at: 9:41 today while taking screenshots, so the forecast's hours
+    /// agree with the status bar; otherwise now.
+    static var clock: Date {
+        guard UserDefaults.standard.bool(forKey: "screenshotCities") else { return .now }
+        return Calendar.current.date(bySettingHour: 9, minute: 41, second: 0, of: .now) ?? .now
+    }
+
     static var keys: [String] { skies.map { keyPrefix + $0.id } }
     static var cityKeys: [String] { cities.map { keyPrefix + $0.id } }
 
@@ -69,12 +76,12 @@ enum SampleSkies {
 
     static func name(for key: String) -> String? { sky(key)?.name }
 
-    static func snapshot(for key: String, now: Date = .now) -> WeatherSnapshot? {
+    static func snapshot(for key: String, now: Date = SampleSkies.clock) -> WeatherSnapshot? {
         guard let sky = sky(key) else { return nil }
         return makeSnapshot(sky, now: now)
     }
 
-    static func detail(for key: String, now: Date = .now) -> ForecastDetail? {
+    static func detail(for key: String, now: Date = SampleSkies.clock) -> ForecastDetail? {
         guard let sky = sky(key) else { return nil }
         let snapshot = makeSnapshot(sky, now: now)
         let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
@@ -93,7 +100,8 @@ enum SampleSkies {
         let today = Calendar.current.startOfDay(for: now)
         let days = (0..<10).map { index in
             ForecastDetail.Day(
-                date: today.addingTimeInterval(Double(index) * 86400),
+                // By calendar day, not 86,400 s: across a clock change that would land two rows on one day.
+                date: Calendar.current.date(byAdding: .day, value: index, to: today) ?? today,
                 symbolName: symbol(sky.symbol, daylight: true),
                 high: DualTemp(celsius: sky.celsius + 4 + Double(index % 3)),
                 low: DualTemp(celsius: sky.celsius - 3 - Double(index % 2)),
