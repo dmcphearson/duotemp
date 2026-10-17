@@ -106,7 +106,8 @@ struct LocationRow: View {
     @ViewBuilder
     static func background(for snapshot: WeatherSnapshot?) -> some View {
         if let snapshot {
-            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName)
+            // The moon sits in the open middle, between the name and the temperature.
+            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName, moonAnchor: UnitPoint(x: 0.55, y: 0.3))
         } else {
             Theme.card
         }
