@@ -1,5 +1,12 @@
 import SwiftUI
 
+/// Where storm flashes light up: anywhere in the upper sky, or inside the drawn clouds, moving between them.
+enum LightningStyle: String, CaseIterable {
+    case anywhere, clouds
+
+    static let storageKey = "lightningStyle"
+}
+
 /// A drawn sky: the SkyStyle gradient plus sun, moon and stars, clouds, rain, snow, fog or lightning.
 /// Still by default, for widgets; `animated` adds gentle motion in the app, and Reduce Motion turns it off.
 /// Between forecast hours the sun's height is interpolated, so sunrise, sunset and twilight build
@@ -24,6 +31,7 @@ struct SkyScene: View {
     let slant: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(LightningStyle.storageKey) private var lightningStyle = LightningStyle.clouds
 
     /// With `sunFollowsTime`, the sun rises at the left edge and sets at the right; widgets turn it off
     /// and keep the sun at `celestial`, clear of their text. Pass the forecast hour after `hour` as `next`
@@ -97,7 +105,10 @@ struct SkyScene: View {
         // 1 by day, 0 by night, blending from 4° above the horizon to 6° below as dusk ends.
         let daylight = sky.elevation.map { min(max(($0 + 6) / 10, 0), 1) } ?? (isDaylight == false ? 0 : 1)
         let glow = style.glow(sunElevation: sky.elevation)
-        let decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
+        var decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
+        // Both layers place clouds from this, so lightning can find the clouds the backdrop drew.
+        decor.cloudSeed = seed ^ 0xC10D_C10D_C10D_C10D
+        decor.lightningStyle = lightningStyle
         let seed = weather ? seed ^ 0x5EED_5EED_5EED_5EED : seed
         let celestial = celestial
         let moonAnchor = moonAnchor
@@ -171,6 +182,8 @@ private struct Decor {
     var daylight = 1.0
     var slant: CGFloat = 0
     var precipitation: Precipitation?
+    var cloudSeed: UInt64 = 0
+    var lightningStyle = LightningStyle.clouds
 
     init(symbolName: String, glow: Double, moonPhase: Double, daylight: Double, slant: CGFloat) {
         self.glow = glow
@@ -247,7 +260,7 @@ private struct Decor {
             let sunAt = sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor
             drawFog(in: &context, size: size, unit: unit, sunAt: sunAt, time: time, random: &random)
         }
-        drawClouds(in: &context, size: size, unit: unit, time: time, random: &random)
+        drawClouds(in: &context, size: size, unit: unit, time: time)
     }
 
     /// Lightning, rain and snow: the fast-moving part.
@@ -363,15 +376,24 @@ private struct Decor {
     }
 
     /// Soft layered clouds: a flat base with three puffs, blurred.
-    private func drawClouds(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?, random: inout SeededRandom) {
-        guard clouds > 0 else { return }
-        let dayOpacity = clouds > 2 ? 0.12 : 0.16
-        let opacity = 0.07 + (dayOpacity - 0.07) * daylight
-        for _ in 0..<clouds {
+    /// Each cloud's base line (`x`, `y`) and width, drifting with `time`; seeded on its own so the
+    /// lightning layer gets the same clouds as the backdrop.
+    private func cloudLayout(size: CGSize, unit: CGFloat, time: Double?) -> [(x: CGFloat, y: CGFloat, width: CGFloat)] {
+        var random = SeededRandom(state: cloudSeed)
+        return (0..<clouds).map { _ in
             let width = min(size.width * .random(in: 0.45...0.75, using: &random), unit * 1.6)
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
             let x = CGFloat.random(in: -width * 0.3...size.width - width * 0.5, using: &random) + width * 0.07 * drift
             let y = size.height * .random(in: 0.08...0.6, using: &random)
+            return (x, y, width)
+        }
+    }
+
+    private func drawClouds(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?) {
+        guard clouds > 0 else { return }
+        let dayOpacity = clouds > 2 ? 0.12 : 0.16
+        let opacity = 0.07 + (dayOpacity - 0.07) * daylight
+        for (x, y, width) in cloudLayout(size: size, unit: unit, time: time) {
             // One blurred shape keeps the cloud even; soft-edged parts would build up where they overlap.
             var cloud = Path()
             cloud.addRoundedRect(in: CGRect(x: x, y: y, width: width, height: width * 0.22), cornerSize: CGSize(width: width * 0.11, height: width * 0.11))
@@ -500,6 +522,10 @@ private struct Decor {
         )
         let glowOnly = Bool.random(using: &strike)
 
+        // Cloud style: each pulse of the strike lights a different cloud, so a double or flicker hops between them.
+        let layout = lightningStyle == .clouds ? cloudLayout(size: size, unit: unit, time: time) : []
+        let hops = layout.isEmpty ? [] : (0..<3).map { _ in layout[Int.random(in: 0..<layout.count, using: &strike)] }
+
         let t = beat - start
         let stops: [(Double, Double)] = switch pattern {
         case 0: [(0, 0), (0.008, 1), (0.03, 0.15), (0.06, 0)]                                         // One crack.
@@ -508,6 +534,26 @@ private struct Decor {
         }
         let level = Self.envelope(t, stops) * strength
         guard level > 0 else { return }
+
+        if !hops.isEmpty {
+            // Pulse boundaries per pattern, matching the stops above.
+            let breaks: [Double] = switch pattern {
+            case 0: []
+            case 1: [0.02]
+            default: [0.015, 0.035]
+            }
+            let cloud = hops[breaks.filter { t > $0 }.count]
+            // The glow sits in the cloud's thick middle and spreads a little past its edges.
+            let center = CGPoint(x: cloud.x + cloud.width * 0.5, y: cloud.y - cloud.width * 0.04)
+            let radius = cloud.width * 0.75
+            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(tint.opacity(level * 0.25)))
+            softEllipse(
+                &context,
+                CGRect(x: center.x - radius, y: center.y - radius * 0.55, width: radius * 2, height: radius * 1.1),
+                color: tint, opacity: min(level * 2, 0.5), solid: 0.15
+            )
+            return
+        }
 
         // Sheet lightning lights the whole sky; cloud lightning lights one patch and only a little of the rest.
         context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(tint.opacity(glowOnly ? level * 0.3 : level)))
