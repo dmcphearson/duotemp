@@ -29,6 +29,7 @@ struct LocationDetailView: View {
             .padding(16)
         }
         .foregroundStyle(.white)
+        .environment(\.rainIntensity, (detail?.snapshot ?? model.snapshots[target.key]).flatMap { RainIntensity(symbolName: $0.now(at: .now).symbolName) })
         .background { sky.ignoresSafeArea() }
         .safeAreaInset(edge: .bottom) {
             if let detail {
@@ -46,7 +47,7 @@ struct LocationDetailView: View {
     @ViewBuilder
     private var sky: some View {
         if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
-            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName)
+            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName, animated: true)
         } else {
             Theme.background
         }
@@ -244,6 +245,7 @@ private struct Card<Content: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
+        .rainSplashes()
     }
 }
 
