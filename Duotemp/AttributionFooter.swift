@@ -93,7 +93,7 @@ extension View {
             .padding(.top, 12)
             .padding(.bottom, 4)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: 0x0B1622).opacity(0.75))
+            .background(Color(hex: 0x0B1622).opacity(0.92))
             .overlay(alignment: .top) {
                 Rectangle().fill(Theme.secondary.opacity(0.15)).frame(height: 1)
             }
