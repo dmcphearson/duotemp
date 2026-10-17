@@ -3,6 +3,7 @@
 ## Build
 - Compile check (no signing): `xcodebuild -project Duotemp.xcodeproj -scheme Duotemp -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`
 - WeatherKit, the App Group and widget location only work in a signed build on a device.
+- To install on a simulator, build without `CODE_SIGNING_ALLOWED=NO`: an unsigned build has no App Group entitlement, so the widget renders blank.
 - Screenshots (debug builds): launch with `-showsSampleSkies YES`, `-screenshotCities YES` for the list of real city names with chosen skies (`SampleSkies.cities`), `-openLocation sample.<id>` to open a place, and `-scrollAnchor 0.6` to start part way down (0 top, 1 bottom). App Store size is the 6.9" iPhone 18 Pro Max simulator (1320x2868); set `xcrun simctl status_bar <id> override --time 9:41` first.
 
 ## Gotchas
