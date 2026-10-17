@@ -18,6 +18,9 @@ enum SampleSkies {
         var rainMM = 0.0
         var rainChance = 0.0
         var fullMoon = false
+        /// Metres per second, and the direction it blows from; leans the rain and snow.
+        var windSpeed = 3.0
+        var windFrom = 250.0
     }
 
     private static let skies: [Sky] = [
@@ -31,11 +34,12 @@ enum SampleSkies {
         Sky(id: "full-moon", name: "Full Moon", condition: "Clear", symbol: "moon.stars", isDaylight: false, sunProgress: nil, sunElevation: -35, celsius: 4, fullMoon: true),
         Sky(id: "partly-cloudy-night", name: "Partly Cloudy Night", condition: "Partly Cloudy", symbol: "cloud.moon", isDaylight: false, sunProgress: nil, sunElevation: -25, celsius: 8),
         Sky(id: "cloudy-night", name: "Cloudy Night", condition: "Cloudy", symbol: "cloud", isDaylight: false, sunProgress: nil, sunElevation: -28, celsius: 9),
-        Sky(id: "drizzle", name: "Drizzle", condition: "Light Rain", symbol: "cloud.drizzle", isDaylight: true, sunProgress: 0.4, sunElevation: 20, celsius: 11, rainMM: 0.3, rainChance: 0.6),
-        Sky(id: "rain", name: "Rain", condition: "Rain", symbol: "cloud.rain", isDaylight: true, sunProgress: 0.45, sunElevation: 21, celsius: 10, rainMM: 1.4, rainChance: 0.85),
-        Sky(id: "heavy-rain", name: "Heavy Rain", condition: "Heavy Rain", symbol: "cloud.heavyrain", isDaylight: true, sunProgress: 0.55, sunElevation: 21, celsius: 10, rainMM: 4.2, rainChance: 0.95),
-        Sky(id: "thunderstorm", name: "Thunderstorm", condition: "Rain and Thunder", symbol: "cloud.bolt.rain", isDaylight: true, sunProgress: 0.6, sunElevation: 18, celsius: 13, rainMM: 5.1, rainChance: 0.9),
-        Sky(id: "snow", name: "Snow", condition: "Light Snow", symbol: "cloud.snow", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -1, rainMM: 0.8, rainChance: 0.7),
+        Sky(id: "drizzle", name: "Drizzle", condition: "Light Rain", symbol: "cloud.drizzle", isDaylight: true, sunProgress: 0.4, sunElevation: 20, celsius: 11, rainMM: 0.3, rainChance: 0.6, windSpeed: 2, windFrom: 270),
+        Sky(id: "rain", name: "Rain", condition: "Rain", symbol: "cloud.rain", isDaylight: true, sunProgress: 0.45, sunElevation: 21, celsius: 10, rainMM: 1.4, rainChance: 0.85, windSpeed: 8, windFrom: 270),
+        Sky(id: "heavy-rain", name: "Heavy Rain", condition: "Heavy Rain", symbol: "cloud.heavyrain", isDaylight: true, sunProgress: 0.55, sunElevation: 21, celsius: 10, rainMM: 4.2, rainChance: 0.95, windSpeed: 12, windFrom: 225),
+        Sky(id: "thunderstorm", name: "Thunderstorm", condition: "Rain and Thunder", symbol: "cloud.bolt.rain", isDaylight: true, sunProgress: 0.6, sunElevation: 18, celsius: 13, rainMM: 5.1, rainChance: 0.9, windSpeed: 14, windFrom: 100),
+        Sky(id: "snow", name: "Snow", condition: "Light Snow", symbol: "cloud.snow", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -1, rainMM: 0.8, rainChance: 0.7, windSpeed: 1, windFrom: 0),
+        Sky(id: "heavy-snow", name: "Heavy Snow", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -3, rainMM: 3, rainChance: 0.95, windSpeed: 11, windFrom: 70),
         Sky(id: "fog", name: "Fog", condition: "Fog", symbol: "cloud.fog", isDaylight: true, sunProgress: 0.25, sunElevation: 9, celsius: 6),
     ]
 
@@ -75,9 +79,9 @@ enum SampleSkies {
             )
         }
         let conditions = ForecastDetail.Conditions(
-            windSpeed: sky.rainMM > 3 ? 11 : 4.5,
-            windDirection: 230,
-            windGust: sky.rainMM > 3 ? 19 : 8,
+            windSpeed: sky.windSpeed,
+            windDirection: sky.windFrom,
+            windGust: sky.windSpeed * 1.6,
             humidity: sky.rainMM > 0 ? 0.94 : 0.72,
             uvIndex: sky.isDaylight ? 3 : 0,
             pressure: sky.rainMM > 3 ? 996 : 1018,
@@ -107,7 +111,9 @@ enum SampleSkies {
             symbolName: sky.symbol,
             isDaylight: sky.isDaylight,
             sunProgress: sky.sunProgress,
-            sunElevation: sky.sunElevation
+            sunElevation: sky.sunElevation,
+            windSpeed: sky.windSpeed,
+            windFromDirection: sky.windFrom
         )
         return WeatherSnapshot(
             placeName: sky.name,
