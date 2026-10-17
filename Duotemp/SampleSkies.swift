@@ -91,7 +91,7 @@ enum SampleSkies {
             )
         }
         let today = Calendar.current.startOfDay(for: now)
-        let days = (0..<7).map { index in
+        let days = (0..<10).map { index in
             ForecastDetail.Day(
                 date: today.addingTimeInterval(Double(index) * 86400),
                 symbolName: symbol(sky.symbol, daylight: true),
