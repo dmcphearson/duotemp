@@ -49,7 +49,7 @@ struct LocationRow: View {
     @ViewBuilder
     static func background(for snapshot: WeatherSnapshot?) -> some View {
         if let snapshot {
-            SkyStyle(hour: snapshot.now(at: .now)).gradient
+            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName)
         } else {
             Theme.card
         }

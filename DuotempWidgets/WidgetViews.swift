@@ -36,7 +36,12 @@ struct WidgetBackground: View {
         switch family {
         case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge:
             if let snapshot = entry.snapshot {
-                SkyStyle(hour: snapshot.now(at: entry.date)).gradient
+                // The medium widget's top-right holds the conditions, so its sun or moon sits top-centre.
+                SkyScene(
+                    hour: snapshot.now(at: entry.date),
+                    place: snapshot.placeName,
+                    celestial: family == .systemMedium ? UnitPoint(x: 0.56, y: 0.08) : UnitPoint(x: 0.95, y: 0.04)
+                )
             } else {
                 Theme.card
             }
