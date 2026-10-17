@@ -22,7 +22,7 @@ struct LocationDetailView: View {
                 if let detail {
                     hourlyCard(detail)
                     dailyCard(detail)
-                    if AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude) {
+                    if AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude, forecast: kp) {
                         AuroraCard(forecast: kp, failed: kpFailed, detail: detail, latitude: target.latitude, longitude: target.longitude)
                     }
                     conditionsGrid(detail)
@@ -70,9 +70,9 @@ struct LocationDetailView: View {
         await aurora
     }
 
-    /// Only fetched where the card shows; a failure leaves the rest of the screen alone.
+    /// Only fetched where the card can show; a failure leaves the rest of the screen alone.
     private func loadAurora() async {
-        guard AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude) else { return }
+        guard AuroraOutlook.mayShow(latitude: target.latitude, longitude: target.longitude) else { return }
         do {
             kp = try await AuroraClient.forecast()
             kpFailed = false

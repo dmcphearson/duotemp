@@ -167,9 +167,32 @@ struct AuroraOutlook {
     let limit: Limit
     /// Cloud cover in the best hour, when the forecast reaches it.
     let cloud: Double?
+    /// Tonight's dark hours, each with its chance after cloud.
+    let hours: [Hour]
 
-    /// Below this geomagnetic latitude even a severe storm rarely reaches the horizon, so the card stays hidden.
-    static let minimumLatitude = 49.0
+    struct Hour: Sendable {
+        let date: Date
+        let chance: Double
+    }
+
+    /// One night's row on the card: when it starts, its best hour's chance, and its best window.
+    struct Night: Sendable {
+        let start: Date
+        let chance: Double
+        let window: DateInterval?
+    }
+
+    var asNight: Night? {
+        hours.first.map { Night(start: $0.date, chance: chance, window: bestWindow) }
+    }
+
+    /// From this geomagnetic latitude poleward the card always shows: a strong storm (Kp 7) reaches the horizon.
+    static let alwaysLatitude = 52.5
+    /// Between here and `alwaysLatitude` the card shows only while a storm big enough to reach the place is
+    /// forecast. Further south even Kp 9 falls short of the horizon.
+    static let stormLatitude = 48.5
+    /// A storm counts as forecast when the ensemble gives it this much chance, the card's "Possible" level.
+    static let stormThreshold = 0.25
 
     /// Geomagnetic latitude from the IGRF-14 dipole (north geomagnetic pole 80.8° N, 72.6° W, epoch 2025).
     static func geomagneticLatitude(latitude: Double, longitude: Double) -> Double {
@@ -186,8 +209,23 @@ struct AuroraOutlook {
         min(max((66.5 - abs(geomagneticLatitude)) / 2, 0), 9)
     }
 
-    static func shows(latitude: Double, longitude: Double) -> Bool {
-        abs(geomagneticLatitude(latitude: latitude, longitude: longitude)) >= minimumLatitude
+    /// Whether the card could ever show here, so the Kp forecast is worth fetching.
+    static func mayShow(latitude: Double, longitude: Double) -> Bool {
+        abs(geomagneticLatitude(latitude: latitude, longitude: longitude)) >= stormLatitude
+    }
+
+    /// Always poleward of `alwaysLatitude`; further south, only while a forecast storm in the next 24 hours
+    /// is likely enough to reach this place's horizon.
+    static func shows(latitude: Double, longitude: Double, forecast: KpForecast?, now: Date = .now) -> Bool {
+        let magnetic = abs(geomagneticLatitude(latitude: latitude, longitude: longitude))
+        if magnetic >= alwaysLatitude { return true }
+        guard magnetic >= stormLatitude, let forecast else { return false }
+        let needed = kpNeeded(geomagneticLatitude: magnetic)
+        let horizon = now.addingTimeInterval(24 * 3600)
+        return forecast.blocks.contains { block in
+            block.start < horizon && block.start.addingTimeInterval(3 * 3600) > now
+                && stormChance(block, needed: needed) >= stormThreshold
+        }
     }
 
     /// Chance one Kp value brings aurora into view, eased so a forecast one step short still counts a little.
@@ -221,6 +259,7 @@ struct AuroraOutlook {
                 break
             }
         }
+        hours = night.map { Hour(date: $0.date, chance: $0.storm * (1 - ($0.cloud ?? 0))) }
 
         guard let best = night.max(by: { $0.storm * (1 - ($0.cloud ?? 0)) < $1.storm * (1 - ($1.cloud ?? 0)) }) else {
             chance = 0
@@ -248,5 +287,20 @@ struct AuroraOutlook {
         } else {
             limit = .none
         }
+    }
+
+    /// The nights after tonight that the Kp forecast still covers, each with its best hour's chance.
+    static func laterNights(after tonight: AuroraOutlook, forecast: KpForecast, latitude: Double, longitude: Double,
+                            cloudCover: [Date: Double], now: Date = .now, count: Int = 2) -> [Night] {
+        var nights: [Night] = []
+        var from = tonight.hours.last.map { $0.date.addingTimeInterval(2 * 3600) } ?? now.addingTimeInterval(24 * 3600)
+        for _ in 0..<count {
+            let outlook = AuroraOutlook(forecast: forecast, latitude: latitude, longitude: longitude, cloudCover: cloudCover, now: from)
+            guard let first = outlook.hours.first, let last = outlook.hours.last,
+                  forecast.block(at: first.date.addingTimeInterval(1800)) != nil else { break }
+            nights.append(Night(start: first.date, chance: outlook.chance, window: outlook.bestWindow))
+            from = last.date.addingTimeInterval(2 * 3600)
+        }
+        return nights
     }
 }

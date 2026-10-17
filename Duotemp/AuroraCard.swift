@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Tonight's chance of seeing the northern (or southern) lights, with the next three days of Kp behind it.
+/// The chance of seeing the northern (or southern) lights tonight and on the next nights the forecast covers.
 struct AuroraCard: View {
     let forecast: KpForecast?
     let failed: Bool
@@ -9,33 +9,105 @@ struct AuroraCard: View {
     let longitude: Double
 
     static let green = Color(hex: 0x6CEBA6)
+    /// A night this likely opens the full card on its own; below it the card stays one line until tapped.
+    static let expandChance = 0.5
+
+    @State private var expanded = false
 
     private var timeZone: TimeZone { detail.snapshot.timeZone }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label(latitude < 0 ? "SOUTHERN LIGHTS" : "NORTHERN LIGHTS", systemImage: "sparkles")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(SkyStyle.secondary)
             if let forecast {
                 let outlook = AuroraOutlook(forecast: forecast, latitude: latitude, longitude: longitude, cloudCover: cloudCover)
-                summary(outlook)
-                KpChart(forecast: forecast, needed: outlook.kpNeeded, latitude: latitude, longitude: longitude, timeZone: timeZone)
-                Link(forecast.source.credit, destination: forecast.source.url)
-                    .font(.caption2)
-                    .foregroundStyle(SkyStyle.secondary)
-            } else if failed {
-                Text("Aurora forecast unavailable. Pull to retry.")
-                    .font(.subheadline)
-                    .foregroundStyle(SkyStyle.secondary)
+                let later = AuroraOutlook.laterNights(
+                    after: outlook, forecast: forecast, latitude: latitude, longitude: longitude, cloudCover: cloudCover
+                )
+                let nights = [outlook.asNight].compactMap { $0 } + later
+                let automatic = nights.contains { $0.chance >= Self.expandChance }
+                if automatic || expanded {
+                    header(collapsible: !automatic)
+                    summary(outlook)
+                    VStack(spacing: 8) {
+                        ForEach(Array(nights.enumerated()), id: \.element.start) { index, night in
+                            NightRow(name: index == 0 && outlook.asNight != nil ? "Tonight" : night.start.formatted(weekdayStyle),
+                                     night: night, timeZone: timeZone)
+                        }
+                    }
+                    Link(forecast.source.credit, destination: forecast.source.url)
+                        .font(.caption2)
+                        .foregroundStyle(SkyStyle.secondary)
+                } else {
+                    compact(outlook)
+                }
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
+                header(collapsible: false)
+                if failed {
+                    Text("Aurora forecast unavailable. Pull to retry.")
+                        .font(.subheadline)
+                        .foregroundStyle(SkyStyle.secondary)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                }
             }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassPanel(RoundedRectangle(cornerRadius: 20))
+    }
+
+    private var title: String { latitude < 0 ? "SOUTHERN LIGHTS" : "NORTHERN LIGHTS" }
+
+    /// The card's title; when the card was opened by a tap, tapping it folds the card again.
+    @ViewBuilder
+    private func header(collapsible: Bool) -> some View {
+        let label = Label(title, systemImage: "sparkles")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(SkyStyle.secondary)
+        if collapsible {
+            Button {
+                withAnimation(.easeInOut(duration: 0.25)) { expanded = false }
+            } label: {
+                HStack {
+                    label
+                    Spacer()
+                    Image(systemName: "chevron.up")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(SkyStyle.secondary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows less")
+        } else {
+            label
+        }
+    }
+
+    /// Under 50% on every night: one line with tonight's level, which opens the full card when tapped.
+    private func compact(_ outlook: AuroraOutlook) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) { expanded = true }
+        } label: {
+            HStack(spacing: 8) {
+                Label(title, systemImage: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(SkyStyle.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text(outlook.limit == .tooLight ? "Too light tonight" : "\(outlook.level.name) · \(Int((outlook.chance * 100).rounded()))% tonight")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(outlook.level >= .possible ? Self.green : .white)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(SkyStyle.secondary)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows the next nights")
     }
 
     private var cloudCover: [Date: Double] {
@@ -54,8 +126,11 @@ struct AuroraCard: View {
                         .foregroundStyle(SkyStyle.secondary)
                 }
             }
-            Text(reason(outlook))
-                .font(.subheadline)
+            // The best time sits in tonight's row; this line only explains a night that won't work.
+            if outlook.limit != .none {
+                Text(reason(outlook))
+                    .font(.subheadline)
+            }
             // Under the oval itself any activity will do, so a threshold of 0 isn't worth stating.
             Text(outlook.kpNeeded < 1 ? "Under the auroral oval: any clear, dark night" : "Needs Kp \(Self.kpText(outlook.kpNeeded)) or more here")
                 .font(.caption)
@@ -80,90 +155,56 @@ struct AuroraCard: View {
         }
     }
 
-    static func kpText(_ kp: Double) -> String {
-        kp.rounded() == kp ? "\(Int(kp))" : String(format: "%.1f", kp)
-    }
-}
-
-/// One bar per 3-hour block, green where Kp reaches what this place needs; night blocks are shaded.
-private struct KpChart: View {
-    let forecast: KpForecast
-    let needed: Double
-    let latitude: Double
-    let longitude: Double
-    let timeZone: TimeZone
-
-    private static let height: CGFloat = 64
-
-    private var blocks: [KpForecast.Block] {
-        let now = Date()
-        return Array(forecast.blocks.filter { $0.start.addingTimeInterval(3 * 3600) > now }.prefix(24))
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .bottom, spacing: 2) {
-                ForEach(blocks, id: \.start) { block in
-                    let middle = block.start.addingTimeInterval(5400)
-                    ZStack(alignment: .bottom) {
-                        Rectangle()
-                            .fill(.white.opacity(AuroraOutlook.isDark(at: middle, latitude: latitude, longitude: longitude) ? 0.08 : 0))
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(block.median >= needed ? AuroraCard.green : .white.opacity(0.45))
-                            .frame(height: max(2, Self.height * block.median / 9))
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            }
-            .frame(height: Self.height)
-            .overlay(alignment: .bottom) {
-                // The level this place needs, dashed across the bars; the summary above names it.
-                Line()
-                    .stroke(.white.opacity(0.75), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    .frame(height: 1)
-                    .offset(y: -Self.height * needed / 9)
-            }
-            // Each day's label sits under the first block of that local day.
-            HStack(spacing: 2) {
-                ForEach(Array(blocks.enumerated()), id: \.element.start) { index, block in
-                    Color.clear
-                        .frame(maxWidth: .infinity, maxHeight: 14)
-                        .overlay(alignment: .leading) {
-                            if let day = dayStart(at: index) {
-                                Text(day.formatted(weekdayStyle))
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(SkyStyle.secondary)
-                                    .fixedSize()
-                            }
-                        }
-                }
-            }
-        }
-        .accessibilityElement()
-        .accessibilityLabel("Kp forecast for the next three days; peak Kp \(AuroraCard.kpText(blocks.map(\.median).max() ?? 0))")
-    }
-
-    private struct Line: Shape {
-        func path(in rect: CGRect) -> Path {
-            Path { path in
-                path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-                path.addLine(to: CGPoint(x: rect.maxX, y: rect.midY))
-            }
-        }
-    }
-
     private var weekdayStyle: Date.FormatStyle {
         var style = Date.FormatStyle.dateTime.weekday(.abbreviated)
         style.timeZone = timeZone
         return style
     }
 
-    /// The local day starting at this block, when it's the first block of that day with room for a label.
-    private func dayStart(at index: Int) -> Date? {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        let day = calendar.startOfDay(for: blocks[index].start)
-        let isNewDay = index == 0 ? false : calendar.startOfDay(for: blocks[index - 1].start) != day
-        return isNewDay && blocks.count - index >= 3 ? day : nil
+    static func kpText(_ kp: Double) -> String {
+        kp.rounded() == kp ? "\(Int(kp))" : String(format: "%.1f", kp)
+    }
+}
+
+/// One night: a meter of its best chance, the percentage, and its best window.
+private struct NightRow: View {
+    let name: String
+    let night: AuroraOutlook.Night
+    let timeZone: TimeZone
+
+    private var percent: Int { Int((night.chance * 100).rounded()) }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(name)
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 64, alignment: .leading)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.12))
+                    Capsule()
+                        .fill(AuroraOutlook.Level(chance: night.chance) >= .possible ? AuroraCard.green : .white.opacity(0.5))
+                        .frame(width: night.chance > 0 ? max(6, proxy.size.width * night.chance) : 0)
+                }
+            }
+            .frame(height: 6)
+            Text("\(percent)%")
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .frame(width: 40, alignment: .trailing)
+            Text(windowText)
+                .font(.caption)
+                .foregroundStyle(SkyStyle.secondary)
+                .frame(width: 92, alignment: .trailing)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(name): \(percent) percent\(windowText == "—" ? "" : ", best \(windowText)")")
+    }
+
+    private var windowText: String {
+        // Below "Possible" every hour is about as unlikely as the next, so a window would mean little.
+        guard let window = night.window, AuroraOutlook.Level(chance: night.chance) >= .possible else { return "—" }
+        var style = Date.FormatStyle.dateTime.hour()
+        style.timeZone = timeZone
+        return "\(window.start.formatted(style))–\(window.end.formatted(style))"
     }
 }
