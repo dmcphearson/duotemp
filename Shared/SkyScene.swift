@@ -478,43 +478,45 @@ private struct Decor {
         }
     }
 
-    /// A faint bolt behind the rain. Animated, it flashes with the sky every seven seconds, offset per
-    /// place so storms in different cards don't flash together, and each flash picks one of three spots
-    /// and a size at random.
+    /// Flashes only, no bolt: each strike picks its own shape (a sheet across the sky, a glow inside one cloud,
+    /// or a flickering mix), tint (cool white, white or faintly yellow) and strength, kept soft enough not to distract.
     private func drawLightning(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?, random: inout SeededRandom) {
+        // A still sky has no moment to flash in.
+        guard let time else { return }
         let offset = Double.random(in: 0...7, using: &random)
-        let spots = [CGPoint(x: 0.6, y: 0.12), CGPoint(x: 0.22, y: 0.2), CGPoint(x: 0.8, y: 0.3)]
-        var bolt = 0.18
-        var flash = 0.0
-        var spot = spots[0]
-        var scale: CGFloat = 1
-        if let time {
-            let cycles = (time + offset) / 7
-            let beat = cycles - cycles.rounded(.down)
-            bolt = Self.envelope(beat, [(0.86, 0), (0.87, 0.7), (0.88, 0.1), (0.9, 0.6), (0.93, 0)])
-            flash = Self.envelope(beat, [(0.86, 0), (0.87, 0.3), (0.88, 0.04), (0.9, 0.18), (0.93, 0)])
-            // The same choice for every frame of one flash; a new one for the next.
-            var strike = SeededRandom(state: UInt64(cycles.rounded(.down)) &* 0x9E37_79B9_7F4A_7C15 ^ 0xA5A5)
-            spot = spots[Int.random(in: 0..<spots.count, using: &strike)]
-            scale = .random(in: 0.6...1, using: &strike)
+        let cycles = (time + offset) / 7
+        let beat = cycles - cycles.rounded(.down)
+
+        // The same choices for every frame of one strike; new ones for the next.
+        var strike = SeededRandom(state: UInt64(cycles.rounded(.down)) &* 0x9E37_79B9_7F4A_7C15 ^ 0xA5A5)
+        let start = Double.random(in: 0.55...0.88, using: &strike)
+        let strength = Double.random(in: 0.12...0.3, using: &strike)
+        let tints = [Color(red: 0.84, green: 0.87, blue: 1), Color(red: 0.96, green: 0.97, blue: 1), Color(red: 1, green: 0.95, blue: 0.78)]
+        let tint = tints[Int.random(in: 0..<tints.count, using: &strike)]
+        let pattern = Int.random(in: 0..<3, using: &strike)
+        let spot = CGPoint(
+            x: size.width * .random(in: 0.15...0.85, using: &strike),
+            y: size.height * .random(in: 0.05...0.35, using: &strike)
+        )
+        let glowOnly = Bool.random(using: &strike)
+
+        let t = beat - start
+        let stops: [(Double, Double)] = switch pattern {
+        case 0: [(0, 0), (0.008, 1), (0.03, 0.15), (0.06, 0)]                                         // One crack.
+        case 1: [(0, 0), (0.008, 0.8), (0.02, 0.1), (0.03, 1), (0.05, 0.2), (0.08, 0)]                // Double.
+        default: [(0, 0), (0.006, 0.5), (0.015, 0.1), (0.025, 0.9), (0.035, 0.2), (0.045, 0.7), (0.09, 0)] // Flicker.
         }
-        if flash > 0 {
-            context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Color(red: 0.84, green: 0.87, blue: 1).opacity(flash)))
-        }
-        guard bolt > 0 else { return }
-        let height = min(unit * 0.5, 120) * scale
-        let origin = CGPoint(x: size.width * spot.x - height * 0.25, y: size.height * spot.y)
-        let points: [(CGFloat, CGFloat)] = [(22, 0), (6, 44), (18, 44), (12, 80), (34, 30), (21, 30), (28, 0)]
-        var shape = Path()
-        for (index, point) in points.enumerated() {
-            let p = CGPoint(x: origin.x + point.0 / 80 * height, y: origin.y + point.1 / 80 * height)
-            index == 0 ? shape.move(to: p) : shape.addLine(to: p)
-        }
-        shape.closeSubpath()
-        context.drawLayer { layer in
-            layer.addFilter(.shadow(color: Color(red: 0.79, green: 0.83, blue: 1), radius: 6))
-            layer.fill(shape, with: .color(Color(red: 0.93, green: 0.95, blue: 1).opacity(bolt)))
-        }
+        let level = Self.envelope(t, stops) * strength
+        guard level > 0 else { return }
+
+        // Sheet lightning lights the whole sky; cloud lightning lights one patch and only a little of the rest.
+        context.fill(Path(CGRect(origin: .zero, size: size)), with: .color(tint.opacity(glowOnly ? level * 0.3 : level)))
+        let radius = max(size.width, size.height) * (glowOnly ? 0.45 : 0.3)
+        softEllipse(
+            &context,
+            CGRect(x: spot.x - radius, y: spot.y - radius * 0.7, width: radius * 2, height: radius * 1.4),
+            color: tint, opacity: min(level * 1.6, 0.45), solid: 0.1
+        )
     }
 
     /// Piecewise-linear value through `(position, value)` stops; 0 outside them.
