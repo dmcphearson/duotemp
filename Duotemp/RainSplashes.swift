@@ -31,6 +31,8 @@ enum SplashStyle: String, CaseIterable, Sendable {
 
 extension EnvironmentValues {
     @Entry var rainIntensity: RainIntensity? = nil
+    /// Sideways drift per point of fall, matching the background rain; see `SkyScene.slant`.
+    @Entry var rainSlant: CGFloat = -0.15
 }
 
 extension View {
@@ -42,13 +44,14 @@ extension View {
 
 private struct RainSplashes: ViewModifier {
     @Environment(\.rainIntensity) private var intensity
+    @Environment(\.rainSlant) private var slant
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(SplashStyle.storageKey) private var style = SplashStyle.mist
 
     func body(content: Content) -> some View {
         content.overlay(alignment: .top) {
             if let intensity, style != .off {
-                SplashLayer(intensity: intensity, style: style, animated: !reduceMotion)
+                SplashLayer(intensity: intensity, style: style, slant: slant, animated: !reduceMotion)
                     .frame(height: SplashLayer.height)
                     .offset(y: -SplashLayer.height + SplashLayer.edgeInset)
                     .allowsHitTesting(false)
@@ -66,6 +69,7 @@ private struct SplashLayer: View {
 
     let intensity: RainIntensity
     let style: SplashStyle
+    let slant: CGFloat
     let animated: Bool
     @State private var seed = UInt64.random(in: 1...UInt64.max)
 
@@ -152,11 +156,11 @@ private struct SplashLayer: View {
             let delay = Double.random(in: 0...period, using: &random)
             let beat = ((time + delay).truncatingRemainder(dividingBy: period)) / period
             if beat < 0.2 {
-                // Falls down and to the left at the background rain's slant, ending on the edge.
+                // Falls at the background rain's slant, ending on the edge.
                 let progress = beat / 0.2
                 let bottom = edge - (edge - 2) * (1 - progress)
-                let drift = 0.22 * (edge - bottom)
-                streaks.move(to: CGPoint(x: x + drift + 0.22 * 10, y: bottom - 10))
+                let drift = -slant * (edge - bottom)
+                streaks.move(to: CGPoint(x: x + drift - slant * 10, y: bottom - 10))
                 streaks.addLine(to: CGPoint(x: x + drift, y: bottom))
             } else if beat < 0.5 {
                 let fade = (beat - 0.2) / 0.3

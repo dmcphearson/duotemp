@@ -38,12 +38,15 @@ struct WidgetBackground: View {
             if let snapshot = entry.snapshot {
                 // Clear of the text: the medium widget's top-right holds the conditions, so its sun and moon
                 // sit top-centre; the small widget's moon sits right of the condition line.
+                let now = snapshot.now(at: entry.date)
                 SkyScene(
-                    hour: snapshot.now(at: entry.date),
+                    hour: now,
+                    next: snapshot.hour(after: now),
                     place: snapshot.placeName,
                     celestial: family == .systemMedium ? UnitPoint(x: 0.56, y: 0.08) : UnitPoint(x: 0.95, y: 0.04),
                     moonAnchor: family == .systemSmall ? UnitPoint(x: 0.84, y: 0.67) : nil,
-                    sunFollowsTime: false
+                    sunFollowsTime: false,
+                    date: entry.date
                 )
             } else {
                 Theme.card

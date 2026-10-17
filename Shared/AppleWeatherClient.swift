@@ -93,7 +93,9 @@ enum AppleWeatherClient {
                     symbolName: hour.symbolName,
                     isDaylight: hour.isDaylight,
                     sunProgress: Solar.dayProgress(at: hour.date, latitude: latitude, longitude: longitude),
-                    sunElevation: Solar.elevation(at: hour.date, latitude: latitude, longitude: longitude)
+                    sunElevation: Solar.elevation(at: hour.date, latitude: latitude, longitude: longitude),
+                    windSpeed: hour.wind.speed.converted(to: .metersPerSecond).value,
+                    windFromDirection: hour.wind.direction.converted(to: .degrees).value
                 )
             }
         let today = daily.forecast.first
@@ -111,7 +113,9 @@ enum AppleWeatherClient {
                 symbolName: current.symbolName,
                 isDaylight: current.isDaylight,
                 sunProgress: Solar.dayProgress(at: current.date, latitude: latitude, longitude: longitude),
-                sunElevation: Solar.elevation(at: current.date, latitude: latitude, longitude: longitude)
+                sunElevation: Solar.elevation(at: current.date, latitude: latitude, longitude: longitude),
+                windSpeed: current.wind.speed.converted(to: .metersPerSecond).value,
+                windFromDirection: current.wind.direction.converted(to: .degrees).value
             ),
             high: DualTemp(today?.highTemperature ?? current.temperature),
             low: DualTemp(today?.lowTemperature ?? current.temperature),

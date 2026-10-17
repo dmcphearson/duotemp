@@ -1,106 +1,170 @@
 import SwiftUI
 
-/// A drawn sky for one hour: the SkyStyle gradient plus sun, moon and stars, clouds, rain, snow, fog or
-/// lightning. Still by default, for widgets; `animated` adds gentle motion in the app, and Reduce Motion
-/// turns it off. Stars and clouds are placed from a seed derived from the place name, so a location keeps
-/// the same sky between refreshes.
+/// A drawn sky: the SkyStyle gradient plus sun, moon and stars, clouds, rain, snow, fog or lightning.
+/// Still by default, for widgets; `animated` adds gentle motion in the app, and Reduce Motion turns it off.
+/// Between forecast hours the sun's height is interpolated, so sunrise, sunset and twilight build
+/// gradually and the day sky blends into the night one. Rain and snow lean with the hour's wind.
+/// Stars and clouds are placed from a seed derived from the place name, so a location keeps the same
+/// sky between refreshes.
 struct SkyScene: View {
     let symbolName: String
     let isDaylight: Bool?
-    let sunProgress: Double?
-    let sunElevation: Double?
+    let track: SunTrack
     let moonPhase: Double
     let seed: UInt64
     /// Where the moon sits, and the sun when it doesn't follow the time of day, as a fraction of the size.
     let celestial: UnitPoint
     /// Overrides the moon's place, unclamped, for layouts whose free space isn't near the top.
     let moonAnchor: UnitPoint?
+    let sunFollowsTime: Bool
     let animated: Bool
+    /// The moment a still sky shows; widgets pass their entry's date, since iOS may draw entries ahead of time.
+    let date: Date?
+    /// Sideways drift per point of fall, from the wind; negative leans left.
+    let slant: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// With `sunFollowsTime`, the sun rises at the left edge and sets at the right; widgets turn it off
-    /// and keep the sun at `celestial`, clear of their text.
+    /// and keep the sun at `celestial`, clear of their text. Pass the forecast hour after `hour` as `next`
+    /// so the sky can blend between the two.
     init(
         hour: WeatherSnapshot.Hour,
+        next: WeatherSnapshot.Hour? = nil,
         place: String,
         celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04),
         moonAnchor: UnitPoint? = nil,
         sunFollowsTime: Bool = true,
-        animated: Bool = false
+        animated: Bool = false,
+        date: Date? = nil
     ) {
+        self.date = date
         self.celestial = celestial
-        self.animated = animated
         self.moonAnchor = moonAnchor
+        self.sunFollowsTime = sunFollowsTime
+        self.animated = animated
         moonPhase = Lunar.phase(at: hour.date)
         symbolName = hour.symbolName
         isDaylight = hour.isDaylight
-        sunProgress = sunFollowsTime ? hour.sunProgress : nil
-        sunElevation = hour.sunElevation
+        track = SunTrack(hour: hour, next: next)
+        slant = Self.slant(windSpeed: hour.windSpeed, from: hour.windFromDirection)
         seed = place.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
     }
 
+    /// Rain drifts with the wind's east-west component: a westerly pushes it right, an easterly left,
+    /// calm air lets it fall straight. Unknown wind keeps a slight lean.
+    static func slant(windSpeed: Double?, from direction: Double?) -> CGFloat {
+        guard let windSpeed, let direction else { return -0.15 }
+        let eastward = -sin(direction * .pi / 180) * min(windSpeed, 15) / 15
+        return CGFloat(eastward * 0.6)
+    }
+
     var body: some View {
-        let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
-        let glow = style.glow(sunElevation: sunElevation)
-        let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight, glow: glow, moonPhase: moonPhase)
-        let seed = seed
-        let celestial = celestial
-        let sunProgress = sunProgress
-        let moonAnchor = moonAnchor
-        let scene = { (time: Double?) in
-            Canvas { context, size in
-                var random = SeededRandom(state: seed)
-                decor.draw(
-                    in: &context, size: size, celestial: celestial, moonAnchor: moonAnchor,
-                    sunProgress: sunProgress, time: time, random: &random
-                )
-            }
-        }
         Group {
             if animated && !reduceMotion {
                 TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
-                    scene(timeline.date.timeIntervalSinceReferenceDate)
+                    frame(at: timeline.date, time: timeline.date.timeIntervalSinceReferenceDate)
+                }
+            } else if animated {
+                TimelineView(.everyMinute) { timeline in
+                    frame(at: timeline.date, time: nil)
                 }
             } else {
-                scene(nil)
+                frame(at: date ?? .now, time: nil)
             }
         }
-        .background(style.gradient(glow: glow))
         .clipped()
         .accessibilityHidden(true)
+    }
+
+    private func frame(at date: Date, time: Double?) -> some View {
+        let sky = track.at(date)
+        let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
+        // 1 by day, 0 by night, blending from 4° above the horizon to 6° below as dusk ends.
+        let daylight = sky.elevation.map { min(max(($0 + 6) / 10, 0), 1) } ?? (isDaylight == false ? 0 : 1)
+        let glow = style.glow(sunElevation: sky.elevation)
+        let decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
+        let seed = seed
+        let celestial = celestial
+        let moonAnchor = moonAnchor
+        let progress = sunFollowsTime ? sky.progress : nil
+        return Canvas { context, size in
+            var random = SeededRandom(state: seed)
+            decor.draw(
+                in: &context, size: size, celestial: celestial, moonAnchor: moonAnchor,
+                sunProgress: progress, time: time, random: &random
+            )
+        }
+        .background(style.gradient(daylight: daylight, glow: glow))
+    }
+}
+
+/// The sun's height and day progress at any moment, interpolated between two forecast hours.
+struct SunTrack: Sendable {
+    let start: Date
+    let end: Date?
+    let elevations: (Double?, Double?)
+    let progresses: (Double?, Double?)
+
+    init(hour: WeatherSnapshot.Hour, next: WeatherSnapshot.Hour?) {
+        start = hour.date
+        end = next?.date
+        elevations = (hour.sunElevation, next?.sunElevation)
+        progresses = (hour.sunProgress, next?.sunProgress)
+    }
+
+    func at(_ date: Date) -> (elevation: Double?, progress: Double?) {
+        guard let end, end > start else { return (elevations.0, progresses.0) }
+        let t = min(max(date.timeIntervalSince(start) / end.timeIntervalSince(start), 0), 1)
+        let elevation: Double? = switch elevations {
+        case let (a?, b?): a + (b - a) * t
+        case let (a, b): a ?? b
+        }
+        // Across sunrise or sunset one end has no progress: the sun is heading for the left or right edge.
+        let progress: Double? = switch progresses {
+        case let (a?, b?): a + (b - a) * t
+        case let (a?, nil): a + (1 - a) * t
+        case let (nil, b?): b * t
+        case (nil, nil): nil
+        }
+        return (elevation, progress)
     }
 }
 
 private struct Decor {
     enum RainAmount { case drizzle, rain, heavy }
-    enum Precipitation { case rain(RainAmount), snow }
+    enum Precipitation { case rain(RainAmount), snow(heavy: Bool) }
 
     var sun = false
     var moon = false
     var stars = false
     var clouds = 0
-    var night = false
     var fog = false
     var storm = false
     /// Sunrise or sunset strength, 0...1; warms the sun.
     var glow = 0.0
     /// 0 new, 0.5 full; see `Lunar`.
     var moonPhase = 0.0
+    /// 1 by day, 0 by night; the sun fades out and the moon and stars fade in between.
+    var daylight = 1.0
+    var slant: CGFloat = 0
     var precipitation: Precipitation?
 
-    init(symbolName: String, style: SkyStyle, isDaylight: Bool?, glow: Double, moonPhase: Double) {
+    init(symbolName: String, glow: Double, moonPhase: Double, daylight: Double, slant: CGFloat) {
         self.glow = glow
         self.moonPhase = moonPhase
+        self.daylight = daylight
+        self.slant = slant
         let parts = Set(symbolName.split(separator: ".").map(String.init))
-        sun = parts.contains("sun")
-        moon = parts.contains("moon")
-        night = moon || style == .clearNight || style == .cloudyNight || isDaylight == false
+        // Clear and partly cloudy skies show the sun by day and the moon and stars by night.
+        let clear = parts.contains("sun") || parts.contains("moon")
+        sun = clear && daylight > 0.01
+        moon = clear && daylight < 0.99
         stars = moon
         fog = !parts.isDisjoint(with: ["fog", "haze", "smoke", "dust"])
         storm = parts.contains("bolt")
         if !parts.isDisjoint(with: ["snow", "sleet", "hail", "snowflake"]) {
-            precipitation = .snow
+            precipitation = .snow(heavy: parts.contains("snowflake") || parts.contains("wind"))
         } else if !parts.isDisjoint(with: ["rain", "drizzle", "heavyrain", "bolt"]) {
             precipitation = .rain(
                 parts.contains("heavyrain") || parts.contains("bolt") ? .heavy : (parts.contains("drizzle") ? .drizzle : .rain)
@@ -109,7 +173,7 @@ private struct Decor {
         if fog {
             clouds = 0
         } else if parts.contains("cloud") {
-            clouds = sun || moon ? 2 : 4
+            clouds = clear ? 2 : 4
         }
     }
 
@@ -135,6 +199,7 @@ private struct Decor {
         if stars {
             // No stars inside the moon's disc, where its dark part would let them show through.
             context.drawLayer { layer in
+                layer.opacity = 1 - daylight
                 if let moonCenter {
                     layer.clip(to: circle(moonCenter, moonRadius(unit) + 1), options: .inverse)
                 }
@@ -142,10 +207,16 @@ private struct Decor {
             }
         }
         if sun {
-            drawSun(in: &context, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit, time: time)
+            context.drawLayer { layer in
+                layer.opacity = daylight
+                drawSun(in: &layer, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit, time: time)
+            }
         }
         if let moonCenter {
-            drawMoon(in: &context, at: moonCenter, unit: unit, time: time)
+            context.drawLayer { layer in
+                layer.opacity = 1 - daylight
+                drawMoon(in: &layer, at: moonCenter, unit: unit, time: time)
+            }
         }
         if fog {
             let sunAt = sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor
@@ -155,7 +226,7 @@ private struct Decor {
         if storm { drawLightning(in: &context, size: size, unit: unit, time: time, random: &random) }
         switch precipitation {
         case .rain(let amount): drawRain(in: &context, size: size, unit: unit, amount: amount, time: time, random: &random)
-        case .snow: drawSnow(in: &context, size: size, time: time, random: &random)
+        case .snow(let heavy): drawSnow(in: &context, size: size, heavy: heavy, time: time, random: &random)
         case nil: break
         }
     }
@@ -264,7 +335,8 @@ private struct Decor {
     /// Soft layered clouds: a flat base with three puffs, blurred.
     private func drawClouds(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, time: Double?, random: inout SeededRandom) {
         guard clouds > 0 else { return }
-        let opacity = night ? 0.07 : (clouds > 2 ? 0.12 : 0.16)
+        let dayOpacity = clouds > 2 ? 0.12 : 0.16
+        let opacity = 0.07 + (dayOpacity - 0.07) * daylight
         for _ in 0..<clouds {
             let width = min(size.width * .random(in: 0.45...0.75, using: &random), unit * 1.6)
             let drift = wave(time, period: .random(in: 60...92, using: &random), phase: .random(in: 0...1, using: &random))
@@ -299,48 +371,60 @@ private struct Decor {
                 // Falls along the streak's slant and re-enters at the top.
                 let fall = CGFloat(time.truncatingRemainder(dividingBy: 600)) * speed * pace
                 start.y = wrapped(start.y + fall, from: -20, span: size.height + 20)
-                start.x = wrapped(start.x - fall * 0.22, from: -10, span: size.width + 20)
+                start.x = wrapped(start.x + fall * slant, from: -10, span: size.width + 20)
             }
             streaks.move(to: start)
-            streaks.addLine(to: CGPoint(x: start.x - length * 0.22, y: start.y + length))
+            streaks.addLine(to: CGPoint(x: start.x + length * slant, y: start.y + length))
         }
         context.stroke(streaks, with: .color(.white.opacity(opacity)), style: StrokeStyle(lineWidth: amount == .drizzle ? 0.75 : 1, lineCap: .round))
     }
 
-    private func drawSnow(in context: inout GraphicsContext, size: CGSize, time: Double?, random: inout SeededRandom) {
-        let count = Int(min(size.width * size.height / 900, 400))
+    /// Flakes that sway and drift with the wind. Heavy snow is dense, bigger and faster, with a whiteout
+    /// haze building toward the ground.
+    private func drawSnow(in context: inout GraphicsContext, size: CGSize, heavy: Bool, time: Double?, random: inout SeededRandom) {
+        if heavy {
+            context.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .linearGradient(
+                    Gradient(colors: [.white.opacity(0.03), .white.opacity(0.16)]),
+                    startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)
+                )
+            )
+        }
+        let count = Int(min(size.width * size.height / (heavy ? 380 : 900), heavy ? 700 : 400))
+        let sizes: ClosedRange<CGFloat> = heavy ? 1.2...3 : 1...2.4
         var flakes = Path()
         for _ in 0..<count {
             var point = CGPoint(x: .random(in: 0...size.width, using: &random), y: .random(in: 0...size.height, using: &random))
-            let radius = CGFloat.random(in: 1...2.4, using: &random)
+            let radius = CGFloat.random(in: sizes, using: &random)
             let sway = wave(time, period: .random(in: 3...5, using: &random), phase: .random(in: 0...1, using: &random))
             if let time {
                 // Bigger flakes fall a little faster.
-                let fall = CGFloat(time.truncatingRemainder(dividingBy: 3600)) * (14 + 10 * radius)
+                let fall = CGFloat(time.truncatingRemainder(dividingBy: 3600)) * (14 + 10 * radius) * (heavy ? 1.5 : 1)
                 point.y = wrapped(point.y + fall, from: -4, span: size.height + 8)
-                point.x += 4 * sway
+                point.x = wrapped(point.x + fall * slant * 0.8 + 4 * sway, from: -4, span: size.width + 8)
             }
             flakes.addPath(circle(point, radius))
         }
-        context.fill(flakes, with: .color(.white.opacity(0.55)))
+        context.fill(flakes, with: .color(.white.opacity(heavy ? 0.7 : 0.55)))
     }
 
     /// Layered haze: by day a pale sun disc shows through, then three depths of very soft bands drift at
     /// different speeds, thickening toward the ground.
     private func drawFog(in context: inout GraphicsContext, size: CGSize, unit: CGFloat, sunAt: CGPoint, time: Double?, random: inout SeededRandom) {
-        if !night {
+        if daylight > 0 {
             // Where the sun would be, kept just inside the frame and blurred, as if seen through fog.
             let center = CGPoint(x: min(max(sunAt.x, unit * 0.15), size.width - unit * 0.15), y: max(sunAt.y, unit * 0.15))
             context.fill(
                 circle(center, unit * 0.45),
                 with: .radialGradient(
-                    Gradient(colors: [.white.opacity(0.22), .white.opacity(0.06), .clear]),
+                    Gradient(colors: [.white.opacity(0.22 * daylight), .white.opacity(0.06 * daylight), .clear]),
                     center: center, startRadius: 0, endRadius: unit * 0.45
                 )
             )
             context.drawLayer { layer in
                 layer.addFilter(.blur(radius: unit * 0.035))
-                layer.fill(circle(center, unit * 0.08), with: .color(.white.opacity(0.28)))
+                layer.fill(circle(center, unit * 0.08), with: .color(.white.opacity(0.28 * daylight)))
             }
         }
         // Back to front: wide and faint high up, tighter and brighter low down.
@@ -349,7 +433,7 @@ private struct Decor {
             (0.4, 0.24, 0.1, 0.13, 50...64),
             (0.62, 0.2, 0.07, 0.13, 36...46),
         ]
-        let tint = night ? 0.8 : 1
+        let tint = 0.8 + 0.2 * daylight
         for layer in layers {
             context.drawLayer { context in
                 context.addFilter(.blur(radius: unit * layer.blur))

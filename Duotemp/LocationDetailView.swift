@@ -29,7 +29,8 @@ struct LocationDetailView: View {
             .padding(16)
         }
         .foregroundStyle(.white)
-        .environment(\.rainIntensity, (detail?.snapshot ?? model.snapshots[target.key]).flatMap { RainIntensity(symbolName: $0.now(at: .now).symbolName) })
+        .environment(\.rainIntensity, currentHour.flatMap { RainIntensity(symbolName: $0.symbolName) })
+        .environment(\.rainSlant, currentHour.map { SkyScene.slant(windSpeed: $0.windSpeed, from: $0.windFromDirection) } ?? -0.15)
         .background { sky.ignoresSafeArea() }
         .safeAreaInset(edge: .bottom) {
             if let detail {
@@ -43,11 +44,16 @@ struct LocationDetailView: View {
         .refreshable { await load() }
     }
 
+    private var currentHour: WeatherSnapshot.Hour? {
+        (detail?.snapshot ?? model.snapshots[target.key])?.now(at: .now)
+    }
+
     /// The sky for the hour on screen, matching the widget and list card.
     @ViewBuilder
     private var sky: some View {
         if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
-            SkyScene(hour: snapshot.now(at: .now), place: snapshot.placeName, animated: true)
+            let now = snapshot.now(at: .now)
+            SkyScene(hour: now, next: snapshot.hour(after: now), place: snapshot.placeName, animated: true)
         } else {
             Theme.background
         }

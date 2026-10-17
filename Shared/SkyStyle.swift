@@ -43,9 +43,39 @@ enum SkyStyle: String, CaseIterable, Sendable {
         return max(0, 1 - distance) * strength
     }
 
+    /// The same condition's day and night skies; styles without a night version return themselves.
+    var dayVariant: SkyStyle {
+        switch self {
+        case .clearNight: .clearDay
+        case .cloudyNight: .cloudyDay
+        case .fogNight: .fog
+        default: self
+        }
+    }
+
+    var nightVariant: SkyStyle {
+        switch self {
+        case .clearDay: .clearNight
+        case .cloudyDay: .cloudyNight
+        case .fog: .fogNight
+        default: self
+        }
+    }
+
+    /// The condition gradient blended between its night (0) and day (1) skies, then warmed by `glow`.
+    func gradient(daylight: Double, glow: Double) -> LinearGradient {
+        let (dayTop, dayBottom) = dayVariant.colors
+        let (nightTop, nightBottom) = nightVariant.colors
+        return Self.gradient(top: nightTop.mix(with: dayTop, by: daylight), bottom: nightBottom.mix(with: dayBottom, by: daylight), glow: glow)
+    }
+
     /// The condition gradient, warmed toward dusky violet, rose and amber by `glow`.
     func gradient(glow: Double) -> LinearGradient {
         let (top, bottom) = colors
+        return Self.gradient(top: top, bottom: bottom, glow: glow)
+    }
+
+    private static func gradient(top: Color, bottom: Color, glow: Double) -> LinearGradient {
         let middle = top.mix(with: bottom, by: 0.5)
         return LinearGradient(
             stops: [

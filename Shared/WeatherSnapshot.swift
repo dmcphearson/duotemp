@@ -15,6 +15,10 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         var sunProgress: Double? = nil
         /// Sun's elevation in degrees; drives the sunrise and sunset colours. Nil when unknown.
         var sunElevation: Double? = nil
+        /// Metres per second; with the direction, leans the drawn rain and snow.
+        var windSpeed: Double? = nil
+        /// Degrees the wind blows from.
+        var windFromDirection: Double? = nil
     }
 
     let placeName: String
@@ -53,6 +57,11 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
             low: DualTemp(celsius: min(low.celsius, earlier.low.celsius)),
             hours: hours
         )
+    }
+
+    /// The forecast hour after `hour`, for blending the sky between the two.
+    func hour(after hour: Hour) -> Hour? {
+        hours.first { $0.date > hour.date }
     }
 
     /// The next `count` forecast hours after `date`.
