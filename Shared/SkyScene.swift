@@ -8,14 +8,25 @@ struct SkyScene: View {
     let isDaylight: Bool?
     let sunProgress: Double?
     let sunElevation: Double?
+    let moonPhase: Double
     let seed: UInt64
     /// Where the moon sits, and the sun when it doesn't follow the time of day, as a fraction of the size.
     let celestial: UnitPoint
+    /// Overrides the moon's place, unclamped, for layouts whose free space isn't near the top.
+    let moonAnchor: UnitPoint?
 
     /// With `sunFollowsTime`, the sun rises at the left edge and sets at the right; widgets turn it off
     /// and keep the sun at `celestial`, clear of their text.
-    init(hour: WeatherSnapshot.Hour, place: String, celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04), sunFollowsTime: Bool = true) {
+    init(
+        hour: WeatherSnapshot.Hour,
+        place: String,
+        celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04),
+        moonAnchor: UnitPoint? = nil,
+        sunFollowsTime: Bool = true
+    ) {
         self.celestial = celestial
+        self.moonAnchor = moonAnchor
+        moonPhase = Lunar.phase(at: hour.date)
         symbolName = hour.symbolName
         isDaylight = hour.isDaylight
         sunProgress = sunFollowsTime ? hour.sunProgress : nil
@@ -26,13 +37,14 @@ struct SkyScene: View {
     var body: some View {
         let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
         let glow = style.glow(sunElevation: sunElevation)
-        let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight, glow: glow)
+        let decor = Decor(symbolName: symbolName, style: style, isDaylight: isDaylight, glow: glow, moonPhase: moonPhase)
         let seed = seed
         let celestial = celestial
         let sunProgress = sunProgress
+        let moonAnchor = moonAnchor
         Canvas { context, size in
             var random = SeededRandom(state: seed)
-            decor.draw(in: &context, size: size, celestial: celestial, sunProgress: sunProgress, random: &random)
+            decor.draw(in: &context, size: size, celestial: celestial, moonAnchor: moonAnchor, sunProgress: sunProgress, random: &random)
         }
         .background(style.gradient(glow: glow))
         .accessibilityHidden(true)
@@ -50,10 +62,13 @@ private struct Decor {
     var fog = false
     /// Sunrise or sunset strength, 0...1; warms the sun.
     var glow = 0.0
+    /// 0 new, 0.5 full; see `Lunar`.
+    var moonPhase = 0.0
     var precipitation: Precipitation?
 
-    init(symbolName: String, style: SkyStyle, isDaylight: Bool?, glow: Double) {
+    init(symbolName: String, style: SkyStyle, isDaylight: Bool?, glow: Double, moonPhase: Double) {
         self.glow = glow
+        self.moonPhase = moonPhase
         let parts = Set(symbolName.split(separator: ".").map(String.init))
         sun = parts.contains("sun")
         moon = parts.contains("moon")
@@ -72,7 +87,14 @@ private struct Decor {
         }
     }
 
-    func draw(in context: inout GraphicsContext, size: CGSize, celestial: UnitPoint, sunProgress: Double?, random: inout SeededRandom) {
+    func draw(
+        in context: inout GraphicsContext,
+        size: CGSize,
+        celestial: UnitPoint,
+        moonAnchor: UnitPoint?,
+        sunProgress: Double?,
+        random: inout SeededRandom
+    ) {
         let unit = min(size.width, size.height)
         let anchor = CGPoint(x: celestial.x * size.width, y: celestial.y * size.height)
         if stars { drawStars(in: &context, size: size, random: &random) }
@@ -80,8 +102,12 @@ private struct Decor {
             drawSun(in: &context, at: sunProgress.map { sunPosition(progress: $0, size: size, unit: unit) } ?? anchor, unit: unit)
         }
         if moon {
-            // Keep the whole crescent on screen.
-            let center = CGPoint(x: min(max(anchor.x, unit * 0.18), size.width - unit * 0.18), y: max(anchor.y, unit * 0.16))
+            let center = if let moonAnchor {
+                CGPoint(x: moonAnchor.x * size.width, y: moonAnchor.y * size.height)
+            } else {
+                // Keep the whole moon on screen.
+                CGPoint(x: min(max(anchor.x, unit * 0.18), size.width - unit * 0.18), y: max(anchor.y, unit * 0.16))
+            }
             drawMoon(in: &context, at: center, unit: unit)
         }
         if fog { drawFog(in: &context, size: size, unit: unit, random: &random) }
@@ -113,7 +139,7 @@ private struct Decor {
                 center: center, startRadius: 0, endRadius: radius
             )
         )
-        for fraction in [0.3, 0.5, 0.74] {
+        for fraction in [0.3, 0.5, 0.74, 0.94] {
             context.stroke(circle(center, radius * fraction), with: .color(.white.opacity(0.08)), lineWidth: 1)
         }
         context.drawLayer { layer in
@@ -122,7 +148,8 @@ private struct Decor {
         }
     }
 
-    /// Crescent with a cool glow.
+    /// The moon at its phase with a cool glow: lit on the right while waxing, on the left while waning,
+    /// with the dark part faintly visible.
     private func drawMoon(in context: inout GraphicsContext, at center: CGPoint, unit: CGFloat) {
         let radius = min(unit * 0.075, 16)
         context.fill(
@@ -132,11 +159,24 @@ private struct Decor {
                 center: center, startRadius: 0, endRadius: radius * 6
             )
         )
-        context.drawLayer { layer in
-            layer.fill(circle(center, radius), with: .color(.white.opacity(0.92)))
-            layer.blendMode = .destinationOut
-            layer.fill(circle(CGPoint(x: center.x - radius * 0.45, y: center.y - radius * 0.3), radius * 0.9), with: .color(.black))
+        context.fill(circle(center, radius), with: .color(.white.opacity(0.1)))
+        // The terminator is a half-ellipse whose width follows cos(phase); the lit limb is a half-circle.
+        let side: CGFloat = moonPhase < 0.5 ? 1 : -1
+        let squash = CGFloat(cos(2 * Double.pi * moonPhase))
+        var lit = Path()
+        for step in 0...32 {
+            let y = -radius + 2 * radius * CGFloat(step) / 32
+            let half = (radius * radius - y * y).squareRoot()
+            let point = CGPoint(x: center.x + side * half, y: center.y + y)
+            step == 0 ? lit.move(to: point) : lit.addLine(to: point)
         }
+        for step in stride(from: 32, through: 0, by: -1) {
+            let y = -radius + 2 * radius * CGFloat(step) / 32
+            let half = (radius * radius - y * y).squareRoot()
+            lit.addLine(to: CGPoint(x: center.x + side * half * squash, y: center.y + y))
+        }
+        lit.closeSubpath()
+        context.fill(lit, with: .color(.white.opacity(0.92)))
     }
 
     private func drawStars(in context: inout GraphicsContext, size: CGSize, random: inout SeededRandom) {
