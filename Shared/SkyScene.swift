@@ -420,9 +420,11 @@ private struct Decor {
                 let size: CGFloat = puff == peak ? .random(in: 0.4...0.5, using: &random) : .random(in: 0.24...0.36, using: &random)
                 return (along, size)
             }
+            let baseHeight: CGFloat = .random(in: 0.18...0.24, using: &random)
             return Cloud(
-                x: centre - width / 2 + width * 0.07 * drift, y: y, width: width,
-                baseHeight: .random(in: 0.18...0.24, using: &random), puffs: puffs,
+                // No lower than the band's foot, which on the location screen is above the first card's bottom edge.
+                x: centre - width / 2 + width * 0.07 * drift, y: min(y, band * 0.92 - width * baseHeight), width: width,
+                baseHeight: baseHeight, puffs: puffs,
                 opacity: .random(in: 0.8...1.1, using: &random)
             )
         }
