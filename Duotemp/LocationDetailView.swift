@@ -6,6 +6,8 @@ struct LocationDetailView: View {
 
     @State private var detail: ForecastDetail?
     @State private var errorMessage: String?
+    @State private var kp: KpForecast?
+    @State private var kpFailed = false
     @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     private var lead: LeadUnit { model.lead }
@@ -19,6 +21,9 @@ struct LocationDetailView: View {
                 if let detail {
                     hourlyCard(detail)
                     dailyCard(detail)
+                    if AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude) {
+                        AuroraCard(forecast: kp, failed: kpFailed, detail: detail, latitude: target.latitude, longitude: target.longitude)
+                    }
                     conditionsGrid(detail)
                 } else if let errorMessage {
                     ContentUnavailableView("Forecast unavailable", systemImage: "icloud.slash", description: Text(errorMessage))
@@ -59,11 +64,24 @@ struct LocationDetailView: View {
     }
 
     private func load() async {
+        async let aurora: Void = loadAurora()
         do {
             detail = try await model.detail(for: target)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
+        }
+        await aurora
+    }
+
+    /// Only fetched where the card shows; a failure leaves the rest of the screen alone.
+    private func loadAurora() async {
+        guard AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude) else { return }
+        do {
+            kp = try await AuroraClient.forecast()
+            kpFailed = false
+        } catch {
+            kpFailed = kp == nil
         }
     }
 

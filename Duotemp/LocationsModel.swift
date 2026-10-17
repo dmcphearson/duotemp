@@ -94,7 +94,8 @@ final class LocationsModel {
     func target(for key: String) -> DetailTarget? {
         #if DEBUG
         if SampleSkies.isSample(key), let name = SampleSkies.name(for: key) {
-            return DetailTarget(key: key, name: name, latitude: 0, longitude: 0, timeZoneID: TimeZone.current.identifier)
+            // Dublin, so samples show the northern lights card with the live Kp forecast.
+            return DetailTarget(key: key, name: name, latitude: 53.35, longitude: -6.26, timeZoneID: TimeZone.current.identifier)
         }
         #endif
         if key == SharedStore.currentLocationKey {

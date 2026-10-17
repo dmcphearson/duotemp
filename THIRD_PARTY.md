@@ -9,6 +9,8 @@ duoTemp Weather has no third-party code packages: no Swift packages, CocoaPods o
 | [MET Norway Locationforecast 2.0](https://api.met.no/weatherapi/locationforecast/2.0/documentation) | [CC BY 4.0 and NLOD 2.0](https://api.met.no/doc/License); [terms of service](https://api.met.no/doc/TermsOfService) | Default forecast: temperature, feels-like, conditions, hourly and daily forecast, rain amounts, wind, humidity, dew point, pressure, clear-sky UV, cloud cover. |
 | [MET Norway Sunrise 3.0](https://api.met.no/weatherapi/sunrise/3.0/documentation) | Same as above | Sunrise and sunset times on the detail screen. |
 | [Apple WeatherKit](https://developer.apple.com/weatherkit/) | [Apple Developer Program License Agreement](https://developer.apple.com/support/terms/apple-developer-program-license-agreement/); 500,000 calls a month included with membership | The alternative forecast source, and on the detail screen it fills what MET lacks: chance of rain, wind gusts, visibility, and sun times if MET's Sunrise call fails. |
+| [GFZ Potsdam Kp forecast](https://isdc.gfz-potsdam.de/kp-index-forecast/) | [CC BY 4.0](https://kp.gfz.de/en/), credit GFZ German Research Centre for Geosciences; provided as-is | Northern lights card: 3-day Kp ensemble forecast, fetched only for places far enough north or south to see aurora. |
+| [NOAA SWPC planetary K-index forecast](https://www.swpc.noaa.gov/products/planetary-k-index) | US government work, public domain | Northern lights card fallback when GFZ is unavailable. |
 | [Apple Maps search](https://developer.apple.com/documentation/mapkit/mklocalsearchcompleter) (MapKit) | Apple SDK and Program terms | Place search when adding a location. Typed text goes to Apple. |
 | [Apple reverse geocoding](https://developer.apple.com/documentation/corelocation/clgeocoder) (Core Location) | Apple SDK and Program terms | Turns the current location's coordinates into a place name and time zone. |
 
@@ -45,12 +47,12 @@ No code is copied; these are public formulas.
 |---|---|---|
 | NOAA low-precision solar position equations | [NOAA Global Monitoring Laboratory](https://gml.noaa.gov/grad/solcalc/solareqns.PDF), US government work | Sun elevation and day progress for the sky colours, sun position and day or night. |
 | Mean synodic month from a reference new moon | Standard astronomy | Moon phase. |
+| Geomagnetic latitude from the IGRF-14 dipole | [IAGA IGRF](https://www.ncei.noaa.gov/products/international-geomagnetic-reference-field) coefficients | Kp each place needs for aurora on its horizon. |
 | SplitMix64 | [Sebastiano Vigna](https://prng.di.unimi.it/splitmix64.c), public domain | Repeatable placement of stars, clouds and splashes. |
 
 ## Planned, not yet in the app
 
 | Service | Terms | Planned use |
 |---|---|---|
-| [NOAA SWPC planetary K-index forecast](https://www.swpc.noaa.gov/products/planetary-k-index) | US government work, public domain | Northern lights likelihood card. |
 | [RainViewer](https://www.rainviewer.com/api.html) | [Terms](https://www.rainviewer.com/terms.html): free API meant for personal, educational and small community use, with "Weather data by RainViewer" credit required; commercial or high-volume use needs an agreement. Reported tile limit of zoom 7. | Precipitation map. Confirm the terms fit a free App Store app before shipping it. |
 | [Cloudflare Workers](https://developers.cloudflare.com/workers/) | Cloudflare terms; free plan | Caching proxy in front of MET Norway, as MET's terms ask. |
