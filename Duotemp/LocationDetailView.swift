@@ -3,6 +3,8 @@ import SwiftUI
 struct LocationDetailView: View {
     let target: DetailTarget
     let model: LocationsModel
+    /// Hands each loaded forecast up, so the pager can credit its sources in a bar that spans every page.
+    var onLoad: (ForecastDetail) -> Void = { _ in }
 
     @State private var detail: ForecastDetail?
     @State private var errorMessage: String?
@@ -36,12 +38,6 @@ struct LocationDetailView: View {
         .foregroundStyle(.white)
         .environment(\.rainIntensity, currentHour.flatMap { RainIntensity(symbolName: $0.symbolName) })
         .environment(\.rainSlant, currentHour.map { SkyScene.slant(windSpeed: $0.windSpeed, from: $0.windFromDirection) } ?? -0.15)
-        .safeAreaInset(edge: .bottom) {
-            if let detail {
-                AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
-                    .pinnedToBottom()
-            }
-        }
         .task { await load() }
         .refreshable { await load() }
     }
@@ -53,7 +49,9 @@ struct LocationDetailView: View {
     private func load() async {
         async let aurora: Void = loadAurora()
         do {
-            detail = try await model.detail(for: target)
+            let loaded = try await model.detail(for: target)
+            detail = loaded
+            onLoad(loaded)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription

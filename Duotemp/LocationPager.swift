@@ -6,6 +6,8 @@ struct LocationPager: View {
     let model: LocationsModel
     @State private var selection: String
     @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
+    /// Each page's loaded forecast, for the sources bar.
+    @State private var loaded: [String: ForecastDetail] = [:]
 
     init(keys: [String], start: String, model: LocationsModel) {
         self.keys = keys.contains(start) ? keys : [start]
@@ -18,7 +20,7 @@ struct LocationPager: View {
             ForEach(keys, id: \.self) { key in
                 Group {
                     if let target = model.target(for: key) {
-                        LocationDetailView(target: target, model: model)
+                        LocationDetailView(target: target, model: model) { loaded[key] = $0 }
                     } else {
                         ContentUnavailableView("Location unavailable", systemImage: "location.slash")
                     }
@@ -27,7 +29,13 @@ struct LocationPager: View {
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .ignoresSafeArea(edges: .bottom)
+        // Outside the pages, so its fill can run under the home indicator; a page's content stops at its edge.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let detail = loaded[selection] {
+                AttributionFooter(sources: detail.sources, fetchedAt: detail.snapshot.fetchedAt)
+                    .pinnedToBottom()
+            }
+        }
         // The sky sits behind the pager, not each page, so it runs up under the navigation bar.
         .background { sky.ignoresSafeArea() }
         .toolbarBackground(.hidden, for: .navigationBar)
