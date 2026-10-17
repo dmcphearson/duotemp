@@ -31,7 +31,6 @@ struct ConditionTile<Graphic: View>: View {
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 196, alignment: .topLeading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
-        .rainSplashes()
         .accessibilityElement(children: .combine)
     }
 }

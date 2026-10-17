@@ -112,6 +112,8 @@ struct LocationDetailView: View {
                 }
             }
         }
+        // Rain meets only the top card, so it stays a hint rather than covering the screen.
+        .rainSplashes()
     }
 
     private func dailyCard(_ detail: ForecastDetail) -> some View {
@@ -245,7 +247,6 @@ private struct Card<Content: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20))
-        .rainSplashes()
     }
 }
 

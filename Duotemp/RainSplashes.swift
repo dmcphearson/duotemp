@@ -2,13 +2,15 @@ import SwiftUI
 
 /// How hard it's raining on the detail screen; nil when it isn't. Cards read it to splash.
 enum RainIntensity: Sendable {
-    case light, heavy
+    case drizzle, light, heavy
 
     init?(symbolName: String) {
         let parts = Set(symbolName.split(separator: ".").map(String.init))
         if !parts.isDisjoint(with: ["heavyrain", "bolt"]) {
             self = .heavy
-        } else if !parts.isDisjoint(with: ["rain", "drizzle"]) {
+        } else if parts.contains("drizzle") {
+            self = .drizzle
+        } else if parts.contains("rain") {
             self = .light
         } else {
             return nil
@@ -32,7 +34,7 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Raindrops land on this card's top edge, burst into two droplets and leave beads.
+    /// Rain meets this card's top edge in the chosen `SplashStyle`. The detail screen uses it on its top card only.
     func rainSplashes() -> some View {
         modifier(RainSplashes())
     }
@@ -87,8 +89,12 @@ private struct SplashLayer: View {
             }
             var random = SplitMix(state: seed)
             let edge = size.height - Self.edgeInset
-            let perPoint: CGFloat = intensity == .heavy ? 0.045 : 0.025
-            let count = max(2, Int(size.width * perPoint))
+            let perPoint: CGFloat = switch intensity {
+            case .drizzle: 0.012
+            case .light: 0.025
+            case .heavy: 0.045
+            }
+            let count = max(1, Int(size.width * perPoint))
             let periods: ClosedRange<Double> = intensity == .heavy ? 0.9...1.7 : 1.4...3.0
             for _ in 0..<count {
                 let x = CGFloat.random(in: 8...max(9, size.width - 8), using: &random)
@@ -131,10 +137,12 @@ private struct SplashLayer: View {
         guard let time else { return }
         var random = SplitMix(state: seed)
         let edge = size.height - Self.edgeInset
-        let heavy = intensity == .heavy
-        let count = max(2, Int(size.width * (heavy ? 0.04 : 0.022)))
-        let periods: ClosedRange<Double> = heavy ? 0.9...1.6 : 1.5...3.2
-        let streakOpacity = heavy ? 0.3 : 0.22
+        let (perPoint, periods, streakOpacity): (CGFloat, ClosedRange<Double>, Double) = switch intensity {
+        case .drizzle: (0.007, 2.4...4.4, 0.13)
+        case .light: (0.014, 1.6...3.4, 0.17)
+        case .heavy: (0.026, 1.0...1.8, 0.22)
+        }
+        let count = max(1, Int(size.width * perPoint))
         var streaks = Path()
         var puffs: [(Path, Double)] = []
         var glints: [(Path, Double)] = []
@@ -153,12 +161,12 @@ private struct SplashLayer: View {
             } else if beat < 0.5 {
                 let fade = (beat - 0.2) / 0.3
                 let width = 6 + 10 * fade
-                puffs.append((Path(ellipseIn: CGRect(x: x - width / 2, y: edge - 2.5, width: width, height: 3.5)), 0.4 * (1 - fade)))
+                puffs.append((Path(ellipseIn: CGRect(x: x - width / 2, y: edge - 2.5, width: width, height: 3.5)), 0.28 * (1 - fade)))
                 if fade < 0.5 {
                     var glint = Path()
                     glint.move(to: CGPoint(x: x - width * 0.6, y: edge))
                     glint.addLine(to: CGPoint(x: x + width * 0.6, y: edge))
-                    glints.append((glint, 0.35 * (1 - fade * 2)))
+                    glints.append((glint, 0.22 * (1 - fade * 2)))
                 }
             }
         }
