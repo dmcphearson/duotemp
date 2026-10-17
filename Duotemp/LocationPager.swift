@@ -33,7 +33,7 @@ struct LocationPager: View {
         .toolbar {
             if keys.count > 1 {
                 ToolbarItem(placement: .principal) {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 7) {
                         Text(model.target(for: selection)?.name ?? "")
                             .font(.headline)
                             .lineLimit(1)
