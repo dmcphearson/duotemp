@@ -72,7 +72,7 @@ private struct SmallView: View {
             Spacer(minLength: 0)
             ConditionLabel(hour: now)
             FeelsLike(temperature: now.feelsLike, lead: entry.lead)
-                .padding(.top, 2)
+                .padding(.top, 1)
             HighLow(snapshot: snapshot, lead: entry.lead)
         }
         .foregroundStyle(.white)
@@ -92,8 +92,8 @@ private struct MediumView: View {
                     BigTemps(temperature: now.temperature, lead: entry.lead, leadSize: 40, trailSize: 24)
                 }
                 Spacer(minLength: 0)
-                VStack(alignment: .trailing, spacing: 4) {
-                    ConditionLabel(hour: now, size: 14)
+                VStack(alignment: .trailing, spacing: 3) {
+                    ConditionLabel(hour: now)
                     HighLow(snapshot: snapshot, lead: entry.lead)
                     FeelsLike(temperature: now.feelsLike, lead: entry.lead)
                 }
@@ -221,11 +221,13 @@ private struct BigTemps: View {
 
 private struct ConditionLabel: View {
     let hour: WeatherSnapshot.Hour
-    var size: CGFloat = 13
+    var size: CGFloat = 12
 
     var body: some View {
-        HStack(spacing: 5) {
-            WeatherSymbol(name: hour.symbolName, size: size + 3)
+        // The symbol gets a fixed slot sized to the text, so the line's text and edges line up with the lines below.
+        HStack(spacing: 4) {
+            WeatherSymbol(name: hour.symbolName, size: size)
+                .frame(width: size + 4, height: size + 2, alignment: .leading)
             Text(hour.condition)
                 .font(.system(size: size, weight: .semibold))
                 .lineLimit(1)
