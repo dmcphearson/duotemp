@@ -38,6 +38,7 @@ All are part of the iOS SDK, used under the [Xcode and Apple SDKs Agreement](htt
 |---|---|---|
 | [SF Symbols](https://developer.apple.com/sf-symbols/) | System-provided images under the Xcode and Apple SDKs Agreement. They may not be used, nor lookalikes, in app icons, logos or any trademark use. | Weather condition icons and interface icons. The app icon must be original artwork. |
 | San Francisco system font | Same agreement; used as the system font only. | All text. |
+| [Outfit](https://fonts.google.com/specimen/Outfit) by Rodrigo Fuenzalida | [SIL Open Font License 1.1](https://openfontlicense.org) | The logo's wordmark, outlined into the brand SVGs. Not used in the app. |
 
 ## Published methods implemented in the app's own code
 
