@@ -28,9 +28,9 @@ struct Provider: AppIntentTimelineProvider {
         let hourly = (first.snapshot?.upcoming(after: first.date) ?? []).map {
             WeatherEntry(date: $0.date, snapshot: first.snapshot, lead: first.lead, isCurrentLocation: first.isCurrentLocation)
         }
-        // MET forecasts expire after about 30 minutes; iOS may stretch this to fit the widget's refresh budget.
-        let isFresh = first.snapshot.map { -$0.fetchedAt.timeIntervalSinceNow < 300 } ?? false
-        let next = Date.now.addingTimeInterval(isFresh ? 30 * 60 : 15 * 60)
+        // Refetch every 30 minutes, matching MET's cache lifetime; iOS may stretch this to fit the widget's
+        // refresh budget, and the hourly entries keep the widget current if it does.
+        let next = Date.now.addingTimeInterval(30 * 60)
         return Timeline(entries: [first] + hourly, policy: .after(next))
     }
 
