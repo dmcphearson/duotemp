@@ -1,0 +1,95 @@
+{
+  "fill-specializations" : [
+    {
+      "value" : "system-light"
+    },
+    {
+      "appearance" : "light",
+      "value" : "system-light"
+    },
+    {
+      "appearance" : "dark",
+      "value" : "system-dark"
+    }
+  ],
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name-specializations" : [
+            {
+              "value" : "sun.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "sun-dark.svg"
+            }
+          ],
+          "name" : "Sun"
+        }
+      ],
+      "name" : "Sun",
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name-specializations" : [
+            {
+              "value" : "reflection.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "reflection-dark.svg"
+            }
+          ],
+          "name" : "Reflection"
+        }
+      ],
+      "name" : "Reflection",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    },
+    {
+      "layers" : [
+        {
+          "image-name-specializations" : [
+            {
+              "value" : "background.svg"
+            },
+            {
+              "appearance" : "dark",
+              "value" : "background-dark.svg"
+            }
+          ],
+          "name" : "Background"
+        }
+      ],
+      "name" : "Background",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : "shared"
+  }
+}

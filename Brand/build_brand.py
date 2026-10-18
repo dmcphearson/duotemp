@@ -3,6 +3,7 @@ import math
 import sys
 from pathlib import Path
 
+from fontTools.pens.boundsPen import BoundsPen
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
@@ -11,6 +12,8 @@ from fontTools.varLib.instancer import instantiateVariableFont
 HERE = Path(__file__).parent
 FONT = HERE / "fonts/Outfit-Variable.ttf"
 OUT = Path(sys.argv[1]) if len(sys.argv) > 1 else HERE / "svg"
+# The app icon's layers for Icon Composer, which add the system's glass, depth and tinting on device.
+ICON_LAYERS = HERE.parent / "Duotemp/AppIcon.icon/Assets"
 
 # Icon palettes: sky gradient stops (offset %, colour), sun, reflection, glow strength.
 VARIANTS = {
@@ -26,6 +29,11 @@ VARIANTS = {
         "sky": [(0, "#0C0C0C"), (45, "#1A1A1A"), (62, "#2C2C2C"), (62, "#000000"), (100, "#070707")],
         "warm": "#E6E6E6", "cool": "#8E8E8E", "glow": 0.22,
     },
+}
+# The app icon's dark appearance: halfway between light and dark, since the system's dark glass darkens it further.
+DUSK = {
+    "sky": [(0, "#1E264E"), (34, "#543A63"), (52, "#A15266"), (62, "#D58B52"), (62, "#0A141C"), (100, "#162430")],
+    "warm": "#F4BE57", "cool": "#96C8EC", "glow": 0.46,
 }
 
 # Icon geometry in a 100-unit square: the ring sits on the horizon at y 62.
@@ -52,14 +60,14 @@ def ripple_lines():
     return lines
 
 
-def icon_body(variant, prefix):
-    v = VARIANTS[variant]
+def icon_parts(v, prefix):
+    """The icon's pieces for palette `v`: shared defs, then the sky, glow, ripples, horizon glint and ring."""
     stops = "".join(f'<stop offset="{o}%" stop-color="{c}"/>' for o, c in v["sky"])
     lines = "".join(
         f'<path d="M{a:.2f} {y}H{b:.2f}" stroke="{v["cool"]}" stroke-opacity="{op}"/>' for a, b, y, op in ripple_lines()
     )
     warm = v["warm"]
-    return f"""<defs>
+    parts = f"""<defs>
 <linearGradient id="{prefix}sky" x1="0" y1="0" x2="0" y2="1">{stops}</linearGradient>
 <radialGradient id="{prefix}glow" cx="50" cy="62" r="44" gradientTransform="matrix(1 0 0 0.409 0 36.6)" gradientUnits="userSpaceOnUse">
 <stop offset="0" stop-color="{warm}" stop-opacity="{v["glow"]}"/><stop offset="1" stop-color="{warm}" stop-opacity="0"/></radialGradient>
@@ -71,6 +79,20 @@ def icon_body(variant, prefix):
 <g fill="none" stroke-width="{LINE}" stroke-linecap="round">{lines}</g>
 <rect x="8" y="61.8" width="84" height="0.6" fill="url(#{prefix}line)"/>
 <path d="M{CX - OUTER} {CY}A{OUTER} {OUTER} 0 0 1 {CX + OUTER} {CY}H{CX + INNER}A{INNER} {INNER} 0 0 0 {CX - INNER} {CY}Z" fill="{warm}"/>"""
+    return parts.split("\n")
+
+
+def icon_body(variant, prefix):
+    return "\n".join(icon_parts(VARIANTS[variant], prefix))
+
+
+def icon_layers(v):
+    """Background (sky, glow and the horizon glint, kept flat), reflection and sun, each a full-size square."""
+    lines = icon_parts(v, "")
+    defs = "\n".join(lines[:7])
+    sky, glow, ripples, horizon, ring = lines[7:]
+    square = lambda body: f'<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 100 100">{body}</svg>\n'
+    return {"background": square(defs + sky + glow + horizon), "reflection": square(ripples), "sun": square(ring)}
 
 
 def icon_svg(variant, size=1024, rounded=False):
@@ -95,6 +117,8 @@ class Face:
         self.upm = self.font["head"].unitsPerEm
         self.hmtx = self.font["hmtx"]
         self.kerning = self._pairs()
+        # The ink extent of everything outlined so far, as (left, top, right, bottom) in SVG coordinates.
+        self.bounds = None
 
     def _pairs(self):
         """Pair adjustments from GPOS lookup type 2, flattened to a dict; the first value found wins."""
@@ -136,6 +160,13 @@ class Face:
             pen = SVGPathPen(self.glyphs)
             self.glyphs[name].draw(TransformPen(pen, (scale, 0, 0, -scale, x, baseline)))
             parts.append(pen.getCommands())
+            box = BoundsPen(self.glyphs)
+            self.glyphs[name].draw(TransformPen(box, (scale, 0, 0, -scale, x, baseline)))
+            if box.bounds:
+                l, t, r, b = box.bounds
+                self.bounds = (l, t, r, b) if self.bounds is None else (
+                    min(self.bounds[0], l), min(self.bounds[1], t), max(self.bounds[2], r), max(self.bounds[3], b)
+                )
             x += self.hmtx[name][0] * scale + tracking * size
             if index + 1 < len(names):
                 x += self.kerning.get((name, names[index + 1]), 0) * scale
@@ -177,6 +208,26 @@ def lockup_svg(text_colour, label_colour, title, background=None):
     )
 
 
+def wordmark_svg(text_colour, label_colour, title):
+    """The lockup's words without the icon, cropped to the letters, for places that already show the icon."""
+    light, semibold, medium = Face(300), Face(600), Face(500)
+    size, baseline = 60, 50
+    duo, x = light.outline("duo", 0, baseline, size, -0.02)
+    temp, end = semibold.outline("Temp", x - size * 0.03, baseline, size, -0.02)
+    label, label_end = medium.outline("WEATHER", 3, baseline + 26, 15, 0.42)
+    boxes = [light.bounds, semibold.bounds, medium.bounds]
+    left, top = min(b[0] for b in boxes), min(b[1] for b in boxes)
+    right, bottom = max(b[2] for b in boxes), max(b[3] for b in boxes)
+    width, height = math.ceil(right - left), math.ceil(bottom - top)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="{left:.2f} {top:.2f} {width} {height}">'
+        f"<title>{title}</title>"
+        f'<path d="{duo} {temp}" fill="{text_colour}"/>'
+        f'<path d="{label}" fill="{label_colour}"/>'
+        "</svg>\n"
+    )
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     for variant in VARIANTS:
@@ -186,6 +237,11 @@ def main():
     (OUT / "duotemp-lockup-on-light.svg").write_text(lockup_svg(NAVY, DEEP_AMBER, "duoTemp Weather"))
     (OUT / "duotemp-lockup-dark.svg").write_text(lockup_svg(CREAM, AMBER, "duoTemp Weather", background=NAVY))
     (OUT / "duotemp-lockup-light.svg").write_text(lockup_svg(NAVY, DEEP_AMBER, "duoTemp Weather", background=CREAM))
+    (OUT / "duotemp-wordmark-on-dark.svg").write_text(wordmark_svg(CREAM, AMBER, "duoTemp Weather"))
+    (OUT / "duotemp-wordmark-on-light.svg").write_text(wordmark_svg(NAVY, DEEP_AMBER, "duoTemp Weather"))
+    for suffix, palette in (("", VARIANTS["light"]), ("-dark", DUSK)):
+        for name, svg in icon_layers(palette).items():
+            (ICON_LAYERS / f"{name}{suffix}.svg").write_text(svg)
     print(f"[duotemp] Wrote brand SVGs to {OUT}")
 
 
