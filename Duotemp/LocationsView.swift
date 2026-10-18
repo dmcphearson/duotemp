@@ -21,8 +21,8 @@ struct LocationsView: View {
                     if Self.screenshotCities {
                         ForEach(Array(SampleSkies.cityKeys.enumerated()), id: \.element) { index, key in
                             let snapshot = SampleSkies.snapshot(for: key)
-                            card(key: key, snapshot: snapshot) {
-                                LocationRow(name: snapshot?.placeName ?? key, tag: index == 0 ? "My Location" : nil, snapshot: snapshot, failed: false, lead: model.lead)
+                            card(key: key, snapshot: snapshot) { moonSpace in
+                                LocationRow(name: snapshot?.placeName ?? key, tag: index == 0 ? "My Location" : nil, snapshot: snapshot, failed: false, lead: model.lead, moonSpace: moonSpace)
                             }
                         }
                     } else {
@@ -54,8 +54,8 @@ struct LocationsView: View {
                     Section("Sample skies") {
                         ForEach(SampleSkies.keys, id: \.self) { key in
                             let snapshot = SampleSkies.snapshot(for: key)
-                            card(key: key, snapshot: snapshot) {
-                                LocationRow(name: snapshot?.placeName ?? key, tag: nil, snapshot: snapshot, failed: false, lead: model.lead)
+                            card(key: key, snapshot: snapshot) { moonSpace in
+                                LocationRow(name: snapshot?.placeName ?? key, tag: nil, snapshot: snapshot, failed: false, lead: model.lead, moonSpace: moonSpace)
                             }
                         }
                     }
@@ -130,13 +130,14 @@ struct LocationsView: View {
         currentLocationRow
         ForEach(model.locations) { location in
             let key = location.id.uuidString
-            card(key: key) {
+            card(key: key) { moonSpace in
                 LocationRow(
                     name: location.name,
                     tag: nil,
                     snapshot: model.snapshots[key],
                     failed: model.failed.contains(key),
-                    lead: model.lead
+                    lead: model.lead,
+                    moonSpace: moonSpace
                 )
             }
         }
@@ -165,16 +166,12 @@ struct LocationsView: View {
 
     /// A tappable card without the list's disclosure chevron, on its sky. It pushes through the path itself,
     /// once: a hidden NavigationLink behind a list row could fire twice and open the screen a second time.
-    private func card<Content: View>(key: String, snapshot: WeatherSnapshot? = nil, @ViewBuilder content: () -> Content) -> some View {
-        Button {
+    private func card<Content: View>(
+        key: String, snapshot: WeatherSnapshot? = nil, @ViewBuilder content: @escaping (Binding<CGRect?>) -> Content
+    ) -> some View {
+        SkyCard(snapshot: snapshot ?? model.snapshots[key], content: content) {
             if path.last != key { path.append(key) }
-        } label: {
-            content()
-                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .listRowBackground(LocationRow.background(for: snapshot ?? model.snapshots[key]))
-        .listRowInsets(EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18))
     }
 
     /// The first card's sky, dimmed, so the screen takes on the weather where you are.
@@ -232,16 +229,35 @@ struct LocationsView: View {
             .padding(.vertical, 4)
             .listRowBackground(Theme.card)
         default:
-            card(key: key) {
+            card(key: key) { moonSpace in
                 LocationRow(
                     name: model.snapshots[key]?.placeName ?? "My Location",
                     tag: "My Location",
                     snapshot: model.snapshots[key],
                     failed: model.failed.contains(key),
                     lead: model.lead,
-                    failureText: "Couldn't find your location. Pull to retry."
+                    failureText: "Couldn't find your location. Pull to retry.",
+                    moonSpace: moonSpace
                 )
             }
         }
+    }
+}
+
+/// A card row whose sky places its moon in the open space the card's text reports.
+private struct SkyCard<Content: View>: View {
+    let snapshot: WeatherSnapshot?
+    let content: (Binding<CGRect?>) -> Content
+    let open: () -> Void
+    @State private var moonSpace: CGRect?
+
+    var body: some View {
+        Button(action: open) {
+            content($moonSpace)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(LocationRow.background(for: snapshot, moonSpace: moonSpace))
+        .listRowInsets(LocationRow.insets)
     }
 }

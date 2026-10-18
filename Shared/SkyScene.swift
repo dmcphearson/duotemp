@@ -16,6 +16,10 @@ struct SkyScene: View {
     let celestial: UnitPoint
     /// Overrides the moon's place, unclamped, for layouts whose free space isn't near the top.
     let moonAnchor: UnitPoint?
+    /// Scales the moon's radius, for layouts with little room around it.
+    let moonScale: CGFloat
+    /// False leaves the moon out, for layouts with no room clear of their text.
+    let showsMoon: Bool
     let sunFollowsTime: Bool
     let animated: Bool
     /// The moment a still sky shows; widgets pass their entry's date, since iOS may draw entries ahead of time.
@@ -34,6 +38,8 @@ struct SkyScene: View {
         place: String,
         celestial: UnitPoint = UnitPoint(x: 0.95, y: 0.04),
         moonAnchor: UnitPoint? = nil,
+        moonScale: CGFloat = 1,
+        showsMoon: Bool = true,
         sunFollowsTime: Bool = true,
         animated: Bool = false,
         date: Date? = nil
@@ -41,6 +47,8 @@ struct SkyScene: View {
         self.date = date
         self.celestial = celestial
         self.moonAnchor = moonAnchor
+        self.moonScale = moonScale
+        self.showsMoon = showsMoon
         self.sunFollowsTime = sunFollowsTime
         self.animated = animated
         moonPhase = Lunar.phase(at: hour.date)
@@ -49,6 +57,27 @@ struct SkyScene: View {
         track = SunTrack(hour: hour, next: next)
         slant = Self.slant(windSpeed: hour.windSpeed, from: hour.windFromDirection)
         seed = place.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
+    }
+
+    /// 1 by day, 0 by night, blending from 4° above the horizon to 6° below as dusk ends.
+    private static func daylight(elevation: Double?, isDaylight: Bool?) -> Double {
+        elevation.map { min(max(($0 + 6) / 10, 0), 1) } ?? (isDaylight == false ? 0 : 1)
+    }
+
+    /// How strongly the moon shows at `date`, 0 when the sky has none; for layouts that draw it themselves
+    /// with `MoonDisc` and pass `showsMoon: false` here.
+    static func moonStrength(hour: WeatherSnapshot.Hour, next: WeatherSnapshot.Hour?, at date: Date) -> Double {
+        let elevation = SunTrack(hour: hour, next: next).at(date).elevation
+        let decor = Decor(
+            symbolName: hour.symbolName, glow: 0, moonPhase: 0,
+            daylight: daylight(elevation: elevation, isDaylight: hour.isDaylight), slant: 0
+        )
+        return decor.moon ? decor.night : 0
+    }
+
+    /// The moon's full radius for a sky whose shorter side is `size`.
+    nonisolated static func moonRadius(size: CGFloat) -> CGFloat {
+        min(size * 0.1, 20)
     }
 
     /// Rain drifts with the wind's east-west component: a westerly pushes it right, an easterly left,
@@ -94,12 +123,13 @@ struct SkyScene: View {
     private func frame(weather: Bool, at date: Date, time: Double?) -> some View {
         let sky = track.at(date)
         let style = SkyStyle(symbolName: symbolName, isDaylight: isDaylight)
-        // 1 by day, 0 by night, blending from 4° above the horizon to 6° below as dusk ends.
-        let daylight = sky.elevation.map { min(max(($0 + 6) / 10, 0), 1) } ?? (isDaylight == false ? 0 : 1)
+        let daylight = Self.daylight(elevation: sky.elevation, isDaylight: isDaylight)
         let glow = style.glow(sunElevation: sky.elevation)
         var decor = Decor(symbolName: symbolName, glow: glow, moonPhase: moonPhase, daylight: daylight, slant: slant)
         // Both layers place clouds from this, so lightning can find the clouds the backdrop drew.
         decor.cloudSeed = seed ^ 0xC10D_C10D_C10D_C10D
+        decor.moonScale = moonScale
+        decor.moon = decor.moon && showsMoon
         let seed = weather ? seed ^ 0x5EED_5EED_5EED_5EED : seed
         let celestial = celestial
         let moonAnchor = moonAnchor
@@ -120,6 +150,25 @@ struct SkyScene: View {
                 style.gradient(daylight: daylight, glow: glow)
             }
         }
+    }
+}
+
+/// The moon on its own, at its phase with its glow, for layouts that place it in their own free space.
+/// The frame is the glow's size; centre it where the moon goes and keep it behind the text.
+struct MoonDisc: View {
+    let date: Date
+    let radius: CGFloat
+    let strength: Double
+
+    var body: some View {
+        Canvas { context, size in
+            let decor = Decor(symbolName: "moon.stars", glow: 0, moonPhase: Lunar.phase(at: date), daylight: 0, slant: 0)
+            context.opacity = strength
+            decor.drawMoon(in: &context, at: CGPoint(x: size.width / 2, y: size.height / 2), radius: radius, time: nil)
+        }
+        .frame(width: radius * 12, height: radius * 12)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -179,6 +228,7 @@ private struct Decor {
     var slant: CGFloat = 0
     var precipitation: Precipitation?
     var cloudSeed: UInt64 = 0
+    var moonScale: CGFloat = 1
 
     init(symbolName: String, glow: Double, moonPhase: Double, daylight: Double, slant: CGFloat) {
         self.glow = glow
@@ -314,13 +364,16 @@ private struct Decor {
     }
 
     private func moonRadius(_ unit: CGFloat) -> CGFloat {
-        min(unit * 0.1, 20)
+        SkyScene.moonRadius(size: unit) * moonScale
     }
 
     /// The moon at its phase with a cool glow: lit on the right while waxing, on the left while waning,
     /// with the dark part faintly visible.
     private func drawMoon(in context: inout GraphicsContext, at center: CGPoint, unit: CGFloat, time: Double?) {
-        let radius = moonRadius(unit)
+        drawMoon(in: &context, at: center, radius: moonRadius(unit), time: time)
+    }
+
+    fileprivate func drawMoon(in context: inout GraphicsContext, at center: CGPoint, radius: CGFloat, time: Double?) {
         let breath = wave(time, period: 14, phase: 0)
         let glowRadius = radius * (6 + 0.4 * breath)
         context.fill(
