@@ -31,15 +31,6 @@ struct LocationsView: View {
                     #else
                     realLocations
                     #endif
-                } header: {
-                    // In the list rather than the bar, so the title lines up with the text on the cards.
-                    Text("duoTemp")
-                        .font(.system(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
-                        .textCase(nil)
-                        .padding(.leading, 2)
-                        .padding(.bottom, 4)
-                        .accessibilityAddTraits(.isHeader)
                 } footer: {
                     if let updated = model.snapshots.values.map(\.fetchedAt).max() {
                         Text("Updated \(updated, format: .dateTime.hour().minute())")
@@ -64,6 +55,8 @@ struct LocationsView: View {
                 #endif
             }
             .listRowSpacing(12)
+            // The first card sits about 20 points below the toolbar buttons, now the title is in the bar.
+            .contentMargins(.top, 9, for: .scrollContent)
             .scrollContentBackground(.hidden)
             .background { screenBackground.ignoresSafeArea() }
             .safeAreaInset(edge: .bottom) {
@@ -74,7 +67,13 @@ struct LocationsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
-                    Color.clear.frame(width: 1, height: 1)
+                    // The wordmark without the icon, centred between Settings and Add.
+                    Image("Wordmark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 38)
+                        .accessibilityLabel("duoTemp Weather")
+                        .accessibilityAddTraits(.isHeader)
                 }
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
