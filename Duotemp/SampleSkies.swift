@@ -58,8 +58,8 @@ enum SampleSkies {
         Sky(id: "city-oslo", name: "Oslo", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 10, celsius: -4, rainMM: 3, rainChance: 0.95, windSpeed: 9, windFrom: 40, latitude: 59.91, longitude: 10.75),
     ]
 
-    /// The time samples are drawn at: 9:41 today while taking screenshots, so the forecast's hours
-    /// agree with the status bar; otherwise now.
+    /// The time samples are dated at: 9:41 today while taking screenshots, matching the status bar;
+    /// otherwise now. The hourly strip follows each sample's own time of day instead.
     static var clock: Date {
         guard UserDefaults.standard.bool(forKey: "screenshotCities") else { return .now }
         return Calendar.current.date(bySettingHour: 9, minute: 41, second: 0, of: .now) ?? .now
@@ -84,10 +84,13 @@ enum SampleSkies {
     static func detail(for key: String, now: Date = SampleSkies.clock) -> ForecastDetail? {
         guard let sky = sky(key) else { return nil }
         let snapshot = makeSnapshot(sky, now: now)
-        let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
+        let today = Calendar.current.startOfDay(for: now)
+        // The strip is labelled with the sample's own time of day, not the clock, so a sunset or night
+        // sky's hours read 7 PM or 11 PM onwards and their suns and moons fall at the right times.
+        let firstHour = localHour(sky).rounded(.down)
         let hours = (0..<48).map { index -> ForecastDetail.Hour in
-            let date = start.addingTimeInterval(Double(index) * 3600)
-            let daylight = isDaylight(sky, hoursAhead: index)
+            let date = today.addingTimeInterval((firstHour + Double(index)) * 3600)
+            let daylight = index == 0 ? sky.isDaylight : isDaylight(atHour: firstHour + Double(index) + 0.5)
             let celsius = sky.celsius + 3 * sin(Double(index) / 24 * 2 * .pi)
             return ForecastDetail.Hour(
                 date: date,
@@ -97,7 +100,6 @@ enum SampleSkies {
                 precipitationChance: sky.rainChance
             )
         }
-        let today = Calendar.current.startOfDay(for: now)
         let days = (0..<10).map { index in
             ForecastDetail.Day(
                 // By calendar day, not 86,400 s: across a clock change that would land two rows on one day.
@@ -119,22 +121,26 @@ enum SampleSkies {
             pressureTrend: sky.rainMM > 3 ? .falling : .steady,
             dewPoint: DualTemp(celsius: sky.celsius - 2),
             visibility: sky.symbol == "cloud.fog" ? 600 : (sky.rainMM > 0 ? 8000 : 24000),
-            sunrise: today.addingTimeInterval(7.9 * 3600),
-            sunset: today.addingTimeInterval(18.4 * 3600)
+            sunrise: today.addingTimeInterval(sunriseHour * 3600),
+            sunset: today.addingTimeInterval(sunsetHour * 3600)
         )
         var sources: [ForecastDetail.Field: WeatherSource] = [:]
         for field in ForecastDetail.Field.allCases { sources[field] = .yr }
         return ForecastDetail(snapshot: snapshot, hours: hours, days: days, conditions: conditions, sources: sources)
     }
 
-    /// Day or night some hours on, from the sample's own time of day: an 11-hour day and a 13-hour night,
-    /// so the forecast agrees with the sky shown rather than with the real clock.
-    private static func isDaylight(_ sky: Sky, hoursAhead: Int) -> Bool {
-        let dayLength = 11.0, cycle = 24.0
-        // Hours since sunrise now: a day sky from its progress, a night sky an hour or so before midnight.
-        let sinceSunrise = sky.isDaylight ? (sky.sunProgress ?? 0.5) * dayLength : dayLength + 5
-        let position = (sinceSunrise + Double(hoursAhead)).truncatingRemainder(dividingBy: cycle)
-        return position < dayLength
+    private static let sunriseHour = 7.9, sunsetHour = 18.4
+
+    /// The sample's time of day in hours after midnight: a day sky from its progress between sunrise
+    /// and sunset, a night sky an hour before midnight.
+    private static func localHour(_ sky: Sky) -> Double {
+        guard sky.isDaylight else { return 23 }
+        return sunriseHour + (sky.sunProgress ?? 0.5) * (sunsetHour - sunriseHour)
+    }
+
+    private static func isDaylight(atHour hour: Double) -> Bool {
+        let time = hour.truncatingRemainder(dividingBy: 24)
+        return time >= sunriseHour && time < sunsetHour
     }
 
     /// The day or night form of a clear or partly cloudy symbol, so a night sky's forecast shows suns by day.
