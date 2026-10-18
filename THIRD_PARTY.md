@@ -1,6 +1,6 @@
 # Third-party services, frameworks and assets
 
-duoTemp Weather has no third-party code packages: no Swift packages, CocoaPods or vendored libraries. Everything outside the app's own MIT-licensed code is listed below.
+duoTemp Weather has no third-party code packages: no Swift packages, CocoaPods or vendored libraries. Everything outside the app's own Apache-2.0 code is listed below.
 
 ## Data services
 
