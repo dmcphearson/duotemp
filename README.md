@@ -1,4 +1,9 @@
-# duoTemp Weather
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Brand/svg/duotemp-lockup-on-dark.svg">
+    <img src="Brand/svg/duotemp-lockup-on-light.svg" alt="duoTemp Weather" width="361">
+  </picture>
+</h1>
 
 Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels-like on every size.
 
@@ -7,6 +12,17 @@ Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels
 - Each widget shows your current location or a saved place.
 - Choose which unit leads; the other is always beside it.
 - Forecasts from [MET Norway](https://api.met.no) by default, with Apple Weather filling gaps or as the main source.
+
+<p align="center">
+  <img src="Brand/screenshots/01-list.png" alt="Saved places list" width="250">
+  <img src="Brand/screenshots/02-prague.png" alt="Prague forecast" width="250">
+  <img src="Brand/screenshots/03-new-york.png" alt="New York forecast" width="250">
+</p>
+<p align="center">
+  <img src="Brand/screenshots/04-reykjavik.png" alt="Reykjavík forecast" width="250">
+  <img src="Brand/screenshots/05-reykjavik-aurora.png" alt="Reykjavík northern lights forecast" width="250">
+  <img src="Brand/screenshots/06-oslo.png" alt="Oslo forecast" width="250">
+</p>
 
 ## Privacy
 No accounts, analytics, ads or tracking. Your location stays on the device; only coordinates rounded to about 1 km are sent to the forecast provider you choose. Settings and cached forecasts live in the app's App Group container.
