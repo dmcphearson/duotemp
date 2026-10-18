@@ -16,4 +16,4 @@ The icon is a degree ring on the horizon: warm sun above, its reflection drawn a
 
 Regenerate the SVGs with `python3 Brand/build_brand.py Brand/svg` (needs fontTools; Outfit is in `fonts/`, SIL OFL). PNGs are rendered from the SVGs with headless Chrome.
 
-These files are © David McPhearson, all rights reserved, and are not covered by the repository's GPL licence (see the main README). The Outfit font keeps its own SIL Open Font License.
+These files are © David McPhearson, all rights reserved, and are not covered by the repository's MIT License (see the main README). The Outfit font keeps its own SIL Open Font License.
