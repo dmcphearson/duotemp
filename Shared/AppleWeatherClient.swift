@@ -4,13 +4,13 @@ import WeatherKit
 /// Apple WeatherKit. Needs the WeatherKit capability and App Service enabled on the App ID.
 enum AppleWeatherClient {
     static func snapshot(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> WeatherSnapshot {
-        let location = CLLocation(latitude: latitude, longitude: longitude)
+        let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
         let (current, hourly, daily) = try await WeatherService.shared.weather(for: location, including: .current, .hourly, .daily)
         return makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: .now)
     }
 
     static func detail(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> ForecastDetail {
-        let location = CLLocation(latitude: latitude, longitude: longitude)
+        let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
         let now = Date()
         let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
         let (current, hourly, daily) = try await WeatherService.shared.weather(
@@ -121,5 +121,12 @@ enum AppleWeatherClient {
             low: DualTemp(today?.lowTemperature ?? current.temperature),
             hours: Array(hours)
         )
+    }
+}
+
+extension CLLocation {
+    /// Rounded to 2 decimals (about 1 km), the same precision MET gets, so Apple's services never see an exact position.
+    convenience init(approximateLatitude latitude: Double, longitude: Double) {
+        self.init(latitude: (latitude * 100).rounded() / 100, longitude: (longitude * 100).rounded() / 100)
     }
 }

@@ -5,7 +5,7 @@ enum PlaceResolver {
     static func describe(_ coordinate: Coordinate) async -> (name: String, timeZoneID: String?) {
         if let cached = SharedStore.cachedPlace(near: coordinate) { return cached }
 
-        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        let location = CLLocation(approximateLatitude: coordinate.latitude, longitude: coordinate.longitude)
         guard let placemark = try? await CLGeocoder().reverseGeocodeLocation(location).first else {
             return ("My Location", nil)
         }
