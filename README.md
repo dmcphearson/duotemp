@@ -53,7 +53,7 @@ The source code is licensed under the [Apache License 2.0](LICENSE). Copyright (
 Any paid features (such as radar maps or Apple Watch widgets) live in a separate private package and are not part of this repository or its licence.
 
 ## Name and logo
-"duoTemp", "duoTemp Weather", the app icon and the logo are trademarks of David McPhearson and are not licensed under the Apache License. You may build and modify the code, but a distributed version must use its own name and icon and must not suggest it is duoTemp. The files in `Brand/` are © David McPhearson, all rights reserved, apart from the Outfit font in `Brand/fonts/` (SIL OFL).
+"duoTemp", "duoTemp Weather", the app icon and the logo are trademarks of David McPhearson and are not licensed under the Apache License. You may build and modify the code, but a distributed version must use its own name and icon and must not suggest it is duoTemp. The files in `Brand/` are © David McPhearson, all rights reserved, apart from the Outfit font in `Brand/fonts/` (SIL OFL). See [TRADEMARKS.md](TRADEMARKS.md) for what forks may and may not do.
 
 ## Contributing
 Issues and suggestions are welcome. Pull requests aren't accepted yet: code contributions will need a contributor licence agreement, which isn't set up.
