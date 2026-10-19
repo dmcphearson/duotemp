@@ -8,6 +8,7 @@ struct LocationPager: View {
     @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
     /// Each page's loaded forecast, for the sources bar.
     @State private var loaded: [String: ForecastDetail] = [:]
+    @Environment(\.dismiss) private var dismiss
 
     init(keys: [String], start: String, model: LocationsModel) {
         self.keys = keys.contains(start) ? keys : [start]
@@ -41,7 +42,18 @@ struct LocationPager: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .navigationTitle(model.target(for: selection)?.name ?? "")
         .navigationBarTitleDisplayMode(.inline)
+        // iOS 26 draws the system back button in the label colour whatever the tint, so this one keeps the
+        // accent; BackSwipe keeps the edge swipe that hiding the system button turns off.
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.backward")
+                }
+                .accessibilityLabel("Back")
+            }
             if keys.count > 1 {
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 7) {
