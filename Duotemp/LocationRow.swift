@@ -10,6 +10,24 @@ struct LocationRow: View {
     let failed: Bool
     let lead: LeadUnit
     var failureText = "Weather unavailable. Pull to retry."
+    /// Reports the open space between the name and the temperatures, in the card's content coordinates,
+    /// so the sky behind can fit its moon there whatever the text size, weight or name length.
+    var moonSpace: Binding<CGRect?> = .constant(nil)
+
+    /// The row insets every card uses; the sky behind spans them, so it offsets `moonSpace` by these.
+    static let insets = EdgeInsets(top: 14, leading: 18, bottom: 14, trailing: 18)
+    nonisolated private static let space = "LocationRow"
+
+    @State private var nameFrame: CGRect?
+    @State private var temperatureFrame: CGRect?
+
+    private var openSpace: CGRect? {
+        guard let nameFrame, let temperatureFrame, temperatureFrame.minX > nameFrame.maxX else { return nil }
+        return CGRect(
+            x: nameFrame.maxX, y: temperatureFrame.minY,
+            width: temperatureFrame.minX - nameFrame.maxX, height: temperatureFrame.height
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -23,6 +41,7 @@ struct LocationRow: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(SkyStyle.secondary)
                 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { nameFrame = $0 }
                 Spacer(minLength: 8)
                 if let snapshot {
                     let temperature = snapshot.now(at: .now).temperature
@@ -32,6 +51,7 @@ struct LocationRow: View {
                         TemperatureText(temperature: temperature, unit: lead, size: 44)
                     }
                     .lineLimit(1)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named(Self.space)) } action: { temperatureFrame = $0 }
                 }
             }
             Spacer(minLength: 14)
@@ -48,6 +68,8 @@ struct LocationRow: View {
         }
         .padding(.vertical, 4)
         .frame(minHeight: 104)
+        .coordinateSpace(.named(Self.space))
+        .onChange(of: openSpace, initial: true) { moonSpace.wrappedValue = openSpace }
         .foregroundStyle(.white)
         .skyTextShadow()
         .accessibilityElement(children: .combine)
@@ -103,25 +125,41 @@ struct LocationRow: View {
 
     /// The sky for the current hour, matching the widget; the plain card until weather loads.
     /// Apply with `listRowBackground` on the row, since row traits don't pass through a NavigationLink's label.
-    static func background(for snapshot: WeatherSnapshot?) -> some View {
-        RowSky(snapshot: snapshot)
+    static func background(for snapshot: WeatherSnapshot?, moonSpace: CGRect?) -> some View {
+        RowSky(snapshot: snapshot, moonSpace: moonSpace)
     }
 }
 
 private struct RowSky: View {
     let snapshot: WeatherSnapshot?
+    let moonSpace: CGRect?
     @AppStorage(SkyAnimation.storageKey) private var animation = SkyAnimation.everywhere
 
     var body: some View {
         if let snapshot {
-            // The moon sits in the open band between the name and the condition line, clear of a long name.
             let now = snapshot.now(at: .now)
-            SkyScene(
-                hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
-                moonAnchor: UnitPoint(x: 0.58, y: 0.42), animated: animation.animatesList
-            )
+            GeometryReader { proxy in
+                let moon = Self.moon(in: moonSpace, size: proxy.size)
+                SkyScene(
+                    hour: now, next: snapshot.hour(after: now), place: snapshot.placeName,
+                    moonAnchor: moon?.anchor, moonScale: moon?.scale ?? 1, showsMoon: moon != nil,
+                    animated: animation.animatesList
+                )
+            }
         } else {
             Theme.card
         }
+    }
+
+    /// Centres a slightly smaller moon in the space between the name and the temperatures, shrinking it to
+    /// keep a margin from the text, and leaves it out when larger or bolder text or a long name closes the gap.
+    private static func moon(in space: CGRect?, size: CGSize) -> (anchor: UnitPoint, scale: CGFloat)? {
+        guard let space, size.width > 0, size.height > 0 else { return nil }
+        let full = SkyScene.moonRadius(size: min(size.width, size.height))
+        let margin: CGFloat = 10
+        let radius = min(full * 0.85, (space.width - 2 * margin) / 2)
+        guard radius >= full * 0.55 else { return nil }
+        let center = CGPoint(x: space.midX + LocationRow.insets.leading, y: space.midY + LocationRow.insets.top)
+        return (UnitPoint(x: center.x / size.width, y: center.y / size.height), radius / full)
     }
 }

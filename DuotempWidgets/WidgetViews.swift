@@ -36,8 +36,9 @@ struct WidgetBackground: View {
         switch family {
         case .systemSmall, .systemMedium, .systemLarge, .systemExtraLarge:
             if let snapshot = entry.snapshot {
-                // Clear of the text: the medium widget's top-right holds the conditions, so its sun and moon
-                // sit top-centre; the small widget's moon sits right of the condition line.
+                // Clear of the text: the medium widget's top-right holds the conditions, so its sun sits
+                // top-centre and it draws its own moon in the gap between its text; the small widget's moon
+                // sits right of the condition line.
                 let now = snapshot.now(at: entry.date)
                 SkyScene(
                     hour: now,
@@ -45,6 +46,7 @@ struct WidgetBackground: View {
                     place: snapshot.placeName,
                     celestial: family == .systemMedium ? UnitPoint(x: 0.56, y: 0.08) : UnitPoint(x: 0.95, y: 0.04),
                     moonAnchor: family == .systemSmall ? UnitPoint(x: 0.84, y: 0.67) : nil,
+                    showsMoon: family != .systemMedium,
                     sunFollowsTime: false,
                     date: entry.date
                 )
@@ -91,12 +93,18 @@ private struct MediumView: View {
                     PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
                     BigTemps(temperature: now.temperature, lead: entry.lead, leadSize: 40, trailSize: 24)
                 }
-                Spacer(minLength: 0)
+                .layoutPriority(1)
+                // The gap between the two text blocks, where the moon goes when there's room for it;
+                // the text takes the room it needs first.
+                Color.clear
+                    .frame(maxWidth: .infinity, maxHeight: 0)
+                    .anchorPreference(key: MoonGapKey.self, value: .bounds) { $0 }
                 VStack(alignment: .trailing, spacing: 3) {
                     ConditionLabel(hour: now)
                     HighLow(snapshot: snapshot, lead: entry.lead)
                     FeelsLike(temperature: now.feelsLike, lead: entry.lead)
                 }
+                .layoutPriority(1)
             }
             Spacer(minLength: 4)
             HStack(spacing: 0) {
@@ -107,6 +115,34 @@ private struct MediumView: View {
             }
         }
         .foregroundStyle(.white)
+        .backgroundPreferenceValue(MoonGapKey.self) { gap in
+            moon(in: gap)
+        }
+    }
+
+    /// The moon centred in the gap, level with the place name and the high and low; left out when a long
+    /// name or wider text leaves no room. The widget draws it here rather than in its sky, since the sky
+    /// can't see where the text ended up.
+    @ViewBuilder
+    private func moon(in gap: Anchor<CGRect>?) -> some View {
+        let radius: CGFloat = 12
+        let strength = SkyScene.moonStrength(hour: now, next: snapshot.hour(after: now), at: entry.date)
+        if let gap, strength > 0 {
+            GeometryReader { proxy in
+                let rect = proxy[gap]
+                if rect.width >= 2 * radius + 8 {
+                    MoonDisc(date: entry.date, radius: radius, strength: strength)
+                        .position(x: rect.midX, y: rect.minY + 19)
+                }
+            }
+        }
+    }
+}
+
+private struct MoonGapKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? { nil }
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
     }
 }
 
