@@ -108,14 +108,26 @@ struct LocationDetailView: View {
     }
 
     private func hourlyCard(_ detail: ForecastDetail) -> some View {
-        Card(title: "Next 48 hours") {
+        let timeZone = detail.snapshot.timeZone
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        // 24 hours here; the rest of the 48 fetched feed the aurora card, and the 10-day card covers later days.
+        return Card(title: "Next 24 hours") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 18) {
-                    ForEach(Array(detail.hours.enumerated()), id: \.element.id) { index, hour in
+                    ForEach(Array(detail.hours.prefix(24).enumerated()), id: \.element.id) { index, hour in
+                        // Midnight shows the new day's name, after a divider, so it's clear where tomorrow starts.
+                        let newDay = index > 0 && calendar.component(.hour, from: hour.date) == 0
+                        if newDay {
+                            Rectangle()
+                                .fill(SkyStyle.secondary.opacity(0.4))
+                                .frame(width: 1)
+                                .padding(.vertical, 2)
+                        }
                         VStack(spacing: 6) {
-                            Text(index == 0 ? "Now" : hour.date.formatted(hourStyle(detail.snapshot.timeZone)))
+                            Text(index == 0 ? "Now" : hour.date.formatted(newDay ? weekdayStyle(timeZone) : hourStyle(timeZone)))
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(SkyStyle.secondary)
+                                .foregroundStyle(newDay ? .white : SkyStyle.secondary)
                             WeatherSymbol(name: hour.symbolName, size: 20)
                                 .frame(height: 24)
                             Text(hour.temperature.degrees(lead))
