@@ -21,16 +21,8 @@ VARIANTS = {
         "sky": [(0, "#2A3468"), (34, "#6E4C80"), (52, "#C8657A"), (62, "#F2A65A"), (62, "#10202C"), (100, "#1F3546")],
         "warm": "#F2B84B", "cool": "#8FC3E8", "glow": 0.5,
     },
-    "dark": {
-        "sky": [(0, "#121733"), (34, "#3A2846"), (52, "#7A3E52"), (62, "#B8704A"), (62, "#05080B"), (100, "#0D141B")],
-        "warm": "#F6C463", "cool": "#9DCDF0", "glow": 0.42,
-    },
-    "tinted": {
-        "sky": [(0, "#0C0C0C"), (45, "#1A1A1A"), (62, "#2C2C2C"), (62, "#000000"), (100, "#070707")],
-        "warm": "#E6E6E6", "cool": "#8E8E8E", "glow": 0.22,
-    },
 }
-# The app icon's dark appearance: halfway between light and dark, since the system's dark glass darkens it further.
+# The app icon's dark appearance: a dusk version of the light palette, since the system's dark glass darkens it further.
 DUSK = {
     "sky": [(0, "#1E264E"), (34, "#543A63"), (52, "#A15266"), (62, "#D58B52"), (62, "#0A141C"), (100, "#162430")],
     "warm": "#F4BE57", "cool": "#96C8EC", "glow": 0.46,
@@ -230,8 +222,7 @@ def wordmark_svg(text_colour, label_colour, title):
 
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
-    for variant in VARIANTS:
-        (OUT / f"duotemp-icon-{variant}.svg").write_text(icon_svg(variant))
+    (OUT / "duotemp-icon-light.svg").write_text(icon_svg("light"))
     (OUT / "duotemp-icon-rounded.svg").write_text(icon_svg("light", 512, rounded=True))
     (OUT / "duotemp-lockup-on-dark.svg").write_text(lockup_svg(CREAM, AMBER, "duoTemp Weather"))
     (OUT / "duotemp-lockup-on-light.svg").write_text(lockup_svg(NAVY, DEEP_AMBER, "duoTemp Weather"))

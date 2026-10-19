@@ -7,21 +7,19 @@
 
 Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels-like on every size.
 
-- Home Screen widgets: small, and medium with a six-hour forecast.
-- Lock Screen widgets: rectangular, circular and inline.
-- Each widget shows your current location or a saved place.
+- Home Screen widgets for where you are: small, and medium with a six-hour forecast.
 - Choose which unit leads; the other is always beside it.
 - Forecasts from [MET Norway](https://api.met.no) by default, with Apple Weather filling gaps or as the main source.
 
 <p align="center">
-  <img src="Brand/screenshots/01-list.png" alt="Saved places list" width="250">
-  <img src="Brand/screenshots/02-prague.png" alt="Prague forecast" width="250">
-  <img src="Brand/screenshots/03-new-york.png" alt="New York forecast" width="250">
+  <img src="Brand/screenshots/01-list.jpg" alt="Saved places list" width="250">
+  <img src="Brand/screenshots/02-prague.jpg" alt="Prague forecast" width="250">
+  <img src="Brand/screenshots/03-new-york.jpg" alt="New York forecast" width="250">
 </p>
 <p align="center">
-  <img src="Brand/screenshots/04-reykjavik.png" alt="Reykjavík forecast" width="250">
-  <img src="Brand/screenshots/05-reykjavik-aurora.png" alt="Reykjavík northern lights forecast" width="250">
-  <img src="Brand/screenshots/06-oslo.png" alt="Oslo forecast" width="250">
+  <img src="Brand/screenshots/04-reykjavik.jpg" alt="Reykjavík forecast" width="250">
+  <img src="Brand/screenshots/05-reykjavik-aurora.jpg" alt="Reykjavík northern lights forecast" width="250">
+  <img src="Brand/screenshots/06-oslo.jpg" alt="Oslo forecast" width="250">
 </p>
 
 ## Privacy
