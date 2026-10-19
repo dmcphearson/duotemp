@@ -74,6 +74,18 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.card)
 
+                Section {
+                    LabeledContent("duoTemp Weather", value: version)
+                    Link(destination: URL(string: "https://github.com/dmcphearson/duotemp")!) {
+                        Label("Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                } header: {
+                    Text("About")
+                } footer: {
+                    Text("No accounts, analytics or tracking. Only rounded coordinates leave your device, sent to the forecast provider.")
+                }
+                .listRowBackground(Theme.card)
+
                 #if DEBUG
                 Section {
                     Toggle("Sample skies", isOn: $model.showsSampleSkies)
@@ -89,18 +101,6 @@ struct SettingsView: View {
                 }
                 .listRowBackground(Theme.card)
                 #endif
-
-                Section {
-                    LabeledContent("duoTemp Weather", value: version)
-                    Link(destination: URL(string: "https://github.com/dmcphearson/duotemp")!) {
-                        Label("Source code on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
-                    }
-                } header: {
-                    Text("About")
-                } footer: {
-                    Text("No accounts, analytics or tracking. Only rounded coordinates leave your device, sent to the forecast provider.")
-                }
-                .listRowBackground(Theme.card)
             }
             .scrollContentBackground(.hidden)
             .background(Theme.background)

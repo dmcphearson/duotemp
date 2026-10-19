@@ -6,6 +6,7 @@ struct LocationsView: View {
     @State private var isAdding = false
     @State private var isShowingSettings = false
     @State private var path: [String] = []
+    @State private var editMode = EditMode.inactive
     #if DEBUG
     @MainActor private static var openedLaunchLocation = false
     #endif
@@ -55,6 +56,7 @@ struct LocationsView: View {
                 #endif
             }
             .listRowSpacing(12)
+            .environment(\.editMode, $editMode)
             // The first card sits about 20 points below the toolbar buttons, now the title is in the bar.
             .contentMargins(.top, 9, for: .scrollContent)
             .scrollContentBackground(.hidden)
@@ -65,34 +67,42 @@ struct LocationsView: View {
             }
             .navigationTitle("duoTemp")
             .navigationBarTitleDisplayMode(.inline)
+            // The title stays for the back button's menu and VoiceOver; the wordmark shows instead.
+            .toolbar(removing: .title)
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    // The wordmark without the icon, centred between Settings and Add.
-                    Image("Wordmark")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 38)
-                        .accessibilityLabel("duoTemp Weather")
-                        .accessibilityAddTraits(.isHeader)
+                // The wordmark without the icon, on the left; everything else is in the one menu on the right.
+                // On iOS 26 a leading item sits on a glass pill unless its shared background is hidden.
+                if #available(iOS 26, *) {
+                    ToolbarItem(placement: .topBarLeading) { wordmark }
+                        .sharedBackgroundVisibility(.hidden)
+                } else {
+                    ToolbarItem(placement: .topBarLeading) { wordmark }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape")
+                ToolbarItem(placement: .topBarTrailing) {
+                    if editMode.isEditing {
+                        Button {
+                            withAnimation { editMode = .inactive }
+                        } label: {
+                            Image(systemName: "checkmark")
+                        }
+                        .accessibilityLabel("Done")
+                    } else {
+                        Menu {
+                            Button("Add Location", systemImage: "plus") {
+                                isAdding = true
+                            }
+                            Button("Edit List", systemImage: "pencil") {
+                                withAnimation { editMode = .active }
+                            }
+                            .disabled(model.locations.isEmpty)
+                            Button("Settings", systemImage: "gearshape") {
+                                isShowingSettings = true
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                        }
+                        .accessibilityLabel("More")
                     }
-                    .accessibilityLabel("Settings")
-                }
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if model.locations.count > 1 {
-                        EditButton()
-                    }
-                    Button {
-                        isAdding = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add location")
                 }
             }
             .navigationDestination(for: String.self) { key in
@@ -141,7 +151,48 @@ struct LocationsView: View {
             }
         }
         .onDelete(perform: model.delete)
-        .onMove(perform: model.move)
+        // Only in Edit List: outside it a long press would lift the square row behind the rounded card.
+        .onMove(perform: reorder)
+        if model.locations.isEmpty {
+            addPlaceRow
+        }
+    }
+
+    /// Width over height of Wordmark.svg; a toolbar item otherwise shrinks the image to icon size.
+    private static let wordmarkAspect: CGFloat = {
+        guard let image = UIImage(named: "Wordmark"), image.size.height > 0 else { return 4 }
+        return image.size.width / image.size.height
+    }()
+
+    private var wordmark: some View {
+        Image("Wordmark")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 38 * Self.wordmarkAspect, height: 38)
+            .fixedSize()
+            .accessibilityLabel("duoTemp Weather")
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    /// Shown until the first place is saved, so adding one doesn't depend on finding the menu.
+    private var addPlaceRow: some View {
+        Button {
+            isAdding = true
+        } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Add a place", systemImage: "plus")
+                    .font(.headline)
+                Text("Search for a city to follow its weather.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.secondary)
+            }
+            .padding(.vertical, 8)
+        }
+        .listRowBackground(Theme.card)
+    }
+
+    private var reorder: ((IndexSet, Int) -> Void)? {
+        editMode.isEditing ? { model.move(from: $0, to: $1) } : nil
     }
 
     #if DEBUG
