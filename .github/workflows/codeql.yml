@@ -1,5 +1,7 @@
-# CodeQL for the Swift app and the workflows. Swift analysis compiles the app on macOS (~15 min),
-# so changes that only touch docs, licensing or images skip it.
+# CodeQL for the Swift app and the workflows. Swift analysis traces a full macOS build (about 17 minutes),
+# so it runs on pushes to main and weekly, not on pull requests, and skips changes that only touch docs,
+# licensing or images. It builds Debug for arm64 only: CodeQL reads the source as it compiles, so a second
+# architecture or optimisation adds time without adding coverage. Pull requests still analyse the workflows.
 name: CodeQL
 
 on:
@@ -30,6 +32,7 @@ permissions:
 jobs:
   swift:
     name: Analyze (swift)
+    if: github.event_name != 'pull_request'
     runs-on: macos-26
     permissions:
       contents: read
@@ -55,7 +58,8 @@ jobs:
             -project Duotemp.xcodeproj \
             -scheme Duotemp \
             -destination 'generic/platform=iOS Simulator' \
-            -configuration Release \
+            -configuration Debug \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Analyze
