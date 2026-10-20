@@ -4,10 +4,12 @@
 BUNDLE_ID_PREFIX = me.mcphearson
 DEVELOPMENT_TEAM = J479S78JUN
 
-// The caching proxy (proxy/, at api.trough.dev) in front of MET Norway and the aurora Kp files.
-// Every build uses it. To call MET directly, set MET_BASE_URL = https:/$()/api.met.no/weatherapi.
+// Forecast and aurora sources. By default the app calls MET Norway, GFZ and NOAA directly.
+// duoTemp's App Store builds route them through its own caching proxy (proxy/), set in Local.xcconfig:
+//   PROXY_BASE_URL = https:/$()/api.example.com
+//   MET_BASE_URL = $(PROXY_BASE_URL)/met
 // "/$()/" stops xcconfig treating "//" as a comment.
-PROXY_BASE_URL = https:/$()/api.trough.dev
-MET_BASE_URL = $(PROXY_BASE_URL)/met
+PROXY_BASE_URL =
+MET_BASE_URL = https:/$()/api.met.no/weatherapi
 
 #include? "Local.xcconfig"
