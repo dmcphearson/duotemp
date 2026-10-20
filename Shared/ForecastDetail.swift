@@ -2,8 +2,8 @@ import Foundation
 
 /// Everything the detail screen shows for one place. Built from the primary source; when that is
 /// Yr, Apple Weather fills the fields Yr doesn't provide. `sources` records who supplied each field.
-struct ForecastDetail: Sendable {
-    struct Hour: Sendable, Identifiable {
+struct ForecastDetail: Codable, Sendable {
+    struct Hour: Codable, Sendable, Identifiable {
         var id: Date { date }
         let date: Date
         let temperature: DualTemp
@@ -15,7 +15,7 @@ struct ForecastDetail: Sendable {
         var cloudCover: Double? = nil
     }
 
-    struct Day: Sendable, Identifiable {
+    struct Day: Codable, Sendable, Identifiable {
         var id: Date { date }
         /// Start of the local day.
         let date: Date
@@ -27,7 +27,7 @@ struct ForecastDetail: Sendable {
         var precipitationChance: Double?
     }
 
-    struct Conditions: Sendable {
+    struct Conditions: Codable, Sendable {
         /// Metres per second.
         var windSpeed: Double?
         /// Degrees the wind blows from.
@@ -47,11 +47,11 @@ struct ForecastDetail: Sendable {
         var sunset: Date?
     }
 
-    enum PressureTrend: Sendable {
+    enum PressureTrend: Codable, Sendable {
         case rising, steady, falling
     }
 
-    enum Field: String, CaseIterable, Sendable {
+    enum Field: String, CaseIterable, Codable, Sendable {
         case temperature = "Temperature and feels-like"
         case conditions = "Conditions and icons"
         case forecast = "Hourly and daily forecast"
