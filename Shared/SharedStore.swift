@@ -85,6 +85,30 @@ enum SharedStore {
         write(CachedAppleDetail(latitude: latitude, longitude: longitude, fetchedAt: fetchedAt, detail: detail), appleDetailKey(key))
     }
 
+    /// Apple Weather's snapshot for a place while it's younger than `maxAge`, shared by the app and widgets so
+    /// foregrounding, pull to refresh and widget reloads don't each spend WeatherKit calls.
+    static func cachedAppleSnapshot(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?, maxAge: TimeInterval, now: Date = .now) -> WeatherSnapshot? {
+        guard let snapshot = read([String: WeatherSnapshot].self, appleSnapshotsKey)?[coordinateKey(latitude, longitude)],
+              now.timeIntervalSince(snapshot.fetchedAt) < maxAge,
+              snapshot.placeName == placeName, snapshot.timeZoneID == timeZoneID
+        else { return nil }
+        return snapshot
+    }
+
+    /// Saves an Apple snapshot and drops entries older than `maxAge`, so places passed through don't pile up.
+    static func cacheAppleSnapshot(_ snapshot: WeatherSnapshot, latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) {
+        var all = (read([String: WeatherSnapshot].self, appleSnapshotsKey) ?? [:]).filter { now.timeIntervalSince($0.value.fetchedAt) < maxAge }
+        all[coordinateKey(latitude, longitude)] = snapshot
+        write(all, appleSnapshotsKey)
+    }
+
+    private static let appleSnapshotsKey = "appleSnapshots"
+
+    /// Coordinates at 2 decimals (~1 km), the precision every request already uses.
+    private static func coordinateKey(_ latitude: Double, _ longitude: Double) -> String {
+        String(format: "%.2f,%.2f", latitude, longitude)
+    }
+
     private struct CachedAppleDetail: Codable {
         let latitude: Double
         let longitude: Double
