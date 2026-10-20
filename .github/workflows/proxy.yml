@@ -28,7 +28,7 @@ jobs:
           persist-credentials: false
       - name: Run tests
         working-directory: proxy
-        run: node --test test/proxy.test.mjs
+        run: node --test test/*.test.mjs
 
   deploy:
     name: Deploy to Cloudflare
