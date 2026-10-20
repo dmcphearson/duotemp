@@ -68,6 +68,28 @@ enum SharedStore {
         for source in WeatherSource.allCases {
             defaults.removeObject(forKey: cacheKey(source, key))
         }
+        defaults.removeObject(forKey: appleDetailKey(key))
+    }
+
+    /// Apple Weather's detail for a place, while it's younger than `maxAge` and the place hasn't moved more
+    /// than ~1 km, so reopening a place doesn't spend another WeatherKit call.
+    static func cachedAppleDetail(key: String, latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) -> ForecastDetail? {
+        guard let cached = read(CachedAppleDetail.self, appleDetailKey(key)),
+              now.timeIntervalSince(cached.fetchedAt) < maxAge,
+              abs(cached.latitude - latitude) < 0.01, abs(cached.longitude - longitude) < 0.01
+        else { return nil }
+        return cached.detail
+    }
+
+    static func cacheAppleDetail(_ detail: ForecastDetail, key: String, latitude: Double, longitude: Double, fetchedAt: Date = .now) {
+        write(CachedAppleDetail(latitude: latitude, longitude: longitude, fetchedAt: fetchedAt, detail: detail), appleDetailKey(key))
+    }
+
+    private struct CachedAppleDetail: Codable {
+        let latitude: Double
+        let longitude: Double
+        let fetchedAt: Date
+        let detail: ForecastDetail
     }
 
     /// Place name and time zone for a coordinate rounded to ~1 km, so widgets don't reverse-geocode every refresh.
@@ -97,6 +119,10 @@ enum SharedStore {
 
     private static func cacheKey(_ source: WeatherSource, _ key: String) -> String {
         "snapshot.\(source.rawValue).\(key)"
+    }
+
+    private static func appleDetailKey(_ key: String) -> String {
+        "appleDetail.\(key)"
     }
 
     private static func read<T: Decodable>(_ type: T.Type, _ key: String) -> T? {
