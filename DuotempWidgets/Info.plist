@@ -4,6 +4,10 @@
 <dict>
 	<key>METBaseURL</key>
 	<string>$(MET_BASE_URL)</string>
+	<key>UserAgentName</key>
+	<string>$(USER_AGENT_NAME)</string>
+	<key>UserAgentContact</key>
+	<string>$(USER_AGENT_CONTACT)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionPointIdentifier</key>

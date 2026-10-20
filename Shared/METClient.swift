@@ -71,7 +71,7 @@ enum METClient {
         guard let url = components.url else { throw URLError(.badURL) }
 
         var request = URLRequest(url: url)
-        request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(UserAgent.value, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await session.data(for: request)
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -94,11 +94,6 @@ enum METClient {
     private static var baseURL: URL {
         let configured = Bundle.main.object(forInfoDictionaryKey: "METBaseURL") as? String
         return configured.flatMap(URL.init(string:)) ?? URL(string: "https://api.met.no/weatherapi")!
-    }
-
-    private static var userAgent: String {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        return "duoTemp/\(version)"
     }
 
     private static let session: URLSession = {
