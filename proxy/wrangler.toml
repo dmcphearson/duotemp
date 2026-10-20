@@ -4,3 +4,14 @@ compatibility_date = "2026-09-01"
 # Served only at api.trough.dev; no workers.dev address.
 workers_dev = false
 routes = [{ pattern = "api.trough.dev", custom_domain = true }]
+
+[vars]
+# App Attest: tokens are only issued to this app ("TEAMID.bundle ID").
+APP_ID = "J479S78JUN.me.mcphearson.duotemp"
+# "log" serves requests without a valid token and logs it; "enforce" refuses them.
+ATTEST_MODE = "log"
+
+# Workers Logs, sampled, to see what share of requests carries a valid token before enforcing.
+[observability]
+enabled = true
+head_sampling_rate = 0.1

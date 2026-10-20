@@ -3,7 +3,12 @@
 // requests share one cache entry; every upstream request carries duoTemp's User-Agent and contact,
 // and never the user's IP address.
 
+import { checkChallenge, checkToken, issueChallenge, issueToken, verifyAttestation, AttestError } from "./attest.mjs";
+import { APPLE_APP_ATTEST_ROOT } from "./apple-root.mjs";
+
 export const USER_AGENT = "duoTemp/0.1 api@trough.dev";
+export const TOKEN_HEADER = "X-Duotemp-Token";
+const MAX_ATTEST_BODY = 64 * 1024;
 
 const MET = "https://api.met.no/weatherapi";
 const AURORA = {
@@ -63,14 +68,27 @@ export function ttlFromExpires(expires, now) {
  * Handles one request. `deps` supplies the cache, the upstream fetch and the clock, so tests can
  * run it without Cloudflare.
  */
-export async function handle(request, { cache, fetchUpstream, now = Date.now(), waitUntil = () => {} }) {
+export async function handle(request, { cache, fetchUpstream, now = Date.now(), waitUntil = () => {}, attest = {} }) {
+  const url = new URL(request.url);
+  if (url.pathname === "/attest/challenge" || url.pathname === "/attest") {
+    return handleAttest(request, url, attest, now);
+  }
   if (request.method !== "GET" && request.method !== "HEAD") {
     return json(405, "only GET and HEAD");
   }
-  const url = new URL(request.url);
   const target = route(url);
   if (target.error) {
     return json(target.error, target.message);
+  }
+
+  // Without a secret, tokens can't be checked, so requests pass as before.
+  if (attest.secret) {
+    const token = request.headers.get(TOKEN_HEADER);
+    const status = !token ? "missing" : (await checkToken(attest.secret, token, now)) ? "valid" : "invalid";
+    attest.log?.(`[duotemp-proxy] token ${status}`);
+    if (attest.mode === "enforce" && status !== "valid") {
+      return json(401, "a valid app token is required");
+    }
   }
 
   // One cache entry per upstream URL, whatever order or precision the query arrived in.
@@ -106,6 +124,54 @@ export async function handle(request, { cache, fetchUpstream, now = Date.now(), 
   const response = new Response(upstream.body, { status: upstream.status, headers });
   waitUntil(cache.put(key, response.clone()));
   return response;
+}
+
+/**
+ * GET /attest/challenge returns a challenge; POST /attest with { keyId, attestation, challenge } (base64)
+ * returns { token, expires } when the attestation is from the app named by `attest.appId`.
+ */
+async function handleAttest(request, url, attest, now) {
+  if (!attest.secret || !attest.appId) {
+    return json(503, "app attestation isn't configured");
+  }
+  if (url.pathname === "/attest/challenge") {
+    if (request.method !== "GET") return json(405, "only GET");
+    return body(200, { challenge: await issueChallenge(attest.secret, now) });
+  }
+  if (request.method !== "POST") return json(405, "only POST");
+
+  let keyId, attestation, challenge;
+  try {
+    const text = await request.text();
+    if (text.length > MAX_ATTEST_BODY) return json(413, "too large");
+    ({ keyId, attestation, challenge } = JSON.parse(text));
+    keyId = Uint8Array.from(atob(keyId), (c) => c.charCodeAt(0));
+    attestation = Uint8Array.from(atob(attestation), (c) => c.charCodeAt(0));
+    if (typeof challenge !== "string") throw new Error();
+  } catch {
+    return json(400, "expected JSON with base64 keyId and attestation, and a challenge");
+  }
+  const challengeIsValid = attest.checkChallenge ?? ((value) => checkChallenge(attest.secret, value, now));
+  if (!(await challengeIsValid(challenge))) {
+    return json(401, "unknown or expired challenge");
+  }
+  try {
+    const rootDer = attest.rootDer ?? Uint8Array.from(atob(APPLE_APP_ATTEST_ROOT), (c) => c.charCodeAt(0));
+    await verifyAttestation({ attestation, keyId, challenge, appId: attest.appId, rootDer, now });
+  } catch (error) {
+    if (!(error instanceof AttestError)) throw error;
+    attest.log?.(`[duotemp-proxy] attestation refused: ${error.message}`);
+    return json(401, "attestation refused");
+  }
+  attest.log?.("[duotemp-proxy] attestation accepted");
+  return body(200, await issueToken(attest.secret, now));
+}
+
+function body(status, value) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
 }
 
 function json(status, message) {
