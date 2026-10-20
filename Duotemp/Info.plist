@@ -4,6 +4,10 @@
 <dict>
 	<key>METBaseURL</key>
 	<string>$(MET_BASE_URL)</string>
+	<key>UserAgentName</key>
+	<string>$(USER_AGENT_NAME)</string>
+	<key>UserAgentContact</key>
+	<string>$(USER_AGENT_CONTACT)</string>
 	<key>ProxyBaseURL</key>
 	<string>$(PROXY_BASE_URL)</string>
 	<key>UILaunchScreen</key>
@@ -11,9 +15,5 @@
 		<key>UIColorName</key>
 		<string>LaunchBackground</string>
 	</dict>
-	<key>UserAgentContact</key>
-	<string>$(USER_AGENT_CONTACT)</string>
-	<key>UserAgentName</key>
-	<string>$(USER_AGENT_NAME)</string>
 </dict>
 </plist>
