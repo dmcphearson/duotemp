@@ -12,4 +12,9 @@ DEVELOPMENT_TEAM = J479S78JUN
 PROXY_BASE_URL =
 MET_BASE_URL = https:/$()/api.met.no/weatherapi
 
+// MET's terms require a User-Agent naming the app with a contact. Empty, the name is the bundle ID
+// and the contact is left out; a fork calling MET directly should set both in Local.xcconfig.
+USER_AGENT_NAME =
+USER_AGENT_CONTACT =
+
 #include? "Local.xcconfig"

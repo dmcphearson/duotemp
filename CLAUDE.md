@@ -12,5 +12,5 @@
 - `Config/Base.xcconfig` holds the bundle prefix and team, and points MET and the aurora files at the sources directly. David's builds set `PROXY_BASE_URL` and `MET_BASE_URL` to the proxy in the gitignored `Config/Local.xcconfig`; archive only with that file present. `//` in xcconfig starts a comment, so URLs are written `https:/$()/…`.
 - The app group ID is derived from the bundle ID in `SharedStore.appGroupID`; keep the widget bundle ID as `<app ID>.widgets`.
 - Swift 6 language mode. MapKit and CoreLocation delegates need explicit isolation handling (see `PlaceSearch`, `OneShotLocation`).
-- MET Norway terms: App Store builds go through the proxy, which sends MET a User-Agent with the api@trough.dev contact and caches until `Expires`. Keep the shared URLCache, coordinates at 2 decimals, and the fetch time visible in the app.
+- MET Norway terms: App Store builds go through the proxy, which sends MET a User-Agent with the api@trough.dev contact and caches until `Expires`. Direct calls send `UserAgent.value` (USER_AGENT_NAME and USER_AGENT_CONTACT, set in Local.xcconfig for David's builds; empty, the bundle ID). Keep the shared URLCache, coordinates at 2 decimals, and the fetch time visible in the app.
 - Logs use the `[duotemp]` prefix.

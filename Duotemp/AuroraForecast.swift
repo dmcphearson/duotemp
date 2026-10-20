@@ -85,8 +85,7 @@ enum AuroraClient {
 
     private static func get(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
-        request.setValue("duoTemp/\(version)", forHTTPHeaderField: "User-Agent")
+        request.setValue(UserAgent.value, forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 15
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
