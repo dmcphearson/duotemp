@@ -52,6 +52,17 @@ enum SharedStore {
         set { write(newValue, "lastKnownCoordinate") }
     }
 
+    struct ProxyToken: Codable, Sendable {
+        let value: String
+        let expires: Date
+    }
+
+    /// The App Attest token for duoTemp's proxy; the app writes it, the app and widgets send it.
+    static var proxyToken: ProxyToken? {
+        get { read(ProxyToken.self, "proxyToken") }
+        set { write(newValue, "proxyToken") }
+    }
+
     static func cachedSnapshot(source: WeatherSource, key: String) -> WeatherSnapshot? {
         read(WeatherSnapshot.self, cacheKey(source, key))
     }

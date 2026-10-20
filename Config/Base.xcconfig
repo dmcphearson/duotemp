@@ -5,9 +5,9 @@ BUNDLE_ID_PREFIX = me.mcphearson
 DEVELOPMENT_TEAM = J479S78JUN
 
 // Forecast and aurora sources. By default the app calls MET Norway, GFZ and NOAA directly.
-// duoTemp's App Store builds route them through its own caching proxy (proxy/), set in Local.xcconfig:
+// duoTemp's App Store builds route them through its own caching proxy (proxy/) once App Attest has issued
+// a token; the proxy is set in Local.xcconfig:
 //   PROXY_BASE_URL = https:/$()/api.example.com
-//   MET_BASE_URL = $(PROXY_BASE_URL)/met
 // "/$()/" stops xcconfig treating "//" as a comment.
 PROXY_BASE_URL =
 MET_BASE_URL = https:/$()/api.met.no/weatherapi
@@ -16,5 +16,9 @@ MET_BASE_URL = https:/$()/api.met.no/weatherapi
 // and the contact is left out; a fork calling MET directly should set both in Local.xcconfig.
 USER_AGENT_NAME =
 USER_AGENT_CONTACT =
+
+// App Attest environment: debug builds attest against Apple's development servers.
+APP_ATTEST_ENVIRONMENT = production
+APP_ATTEST_ENVIRONMENT[config=Debug] = development
 
 #include? "Local.xcconfig"
