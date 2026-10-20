@@ -40,19 +40,10 @@ struct KpForecast: Sendable {
 
 enum AuroraClient {
     private static let log = Logger(subsystem: "me.mcphearson.duotemp", category: "Aurora")
-    /// Through the proxy (`ProxyBaseURL` in Info.plist) so GFZ and NOAA never see the user's IP; the
-    /// sources directly when no proxy is configured.
-    private static var gfzURL: URL {
-        proxied("aurora/gfz") ?? URL(string: "https://spaceweather.gfz.de/fileadmin/Kp-Forecast/CSV/kp_product_file_FORECAST_PAGER_SWIFT_LAST.csv")!
-    }
-    private static var noaaURL: URL {
-        proxied("aurora/noaa") ?? URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json")!
-    }
-
-    private static func proxied(_ path: String) -> URL? {
-        let configured = Bundle.main.object(forInfoDictionaryKey: "ProxyBaseURL") as? String
-        return configured.flatMap(URL.init(string:))?.appending(path: path)
-    }
+    /// Through the proxy when the app holds a token (`ProxyAccess`), so GFZ and NOAA never see the user's IP;
+    /// the sources directly otherwise.
+    private static let gfzDirect = URL(string: "https://spaceweather.gfz.de/fileadmin/Kp-Forecast/CSV/kp_product_file_FORECAST_PAGER_SWIFT_LAST.csv")!
+    private static let noaaDirect = URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json")!
 
     /// The forecast is global, so one fetch serves every location until it's 30 minutes old.
     private static let memo = Memo()
@@ -61,10 +52,10 @@ enum AuroraClient {
         if let cached = await memo.value { return cached }
         let forecast: KpForecast
         do {
-            forecast = try parseGFZ(try await get(gfzURL))
+            forecast = try parseGFZ(try await get(proxyPath: "aurora/gfz", direct: gfzDirect))
         } catch {
             log.warning("[duotemp] GFZ Kp forecast failed (\(error.localizedDescription)); trying NOAA")
-            forecast = try parseNOAA(try await get(noaaURL))
+            forecast = try parseNOAA(try await get(proxyPath: "aurora/noaa", direct: noaaDirect))
         }
         await memo.store(forecast)
         return forecast
@@ -83,12 +74,20 @@ enum AuroraClient {
         }
     }
 
-    private static func get(_ url: URL) async throws -> Data {
+    private static func get(proxyPath: String, direct: URL) async throws -> Data {
+        let route = ProxyAccess.route()
+        let url = route.map { $0.base.appending(path: proxyPath) } ?? direct
         var request = URLRequest(url: url)
         request.setValue(UserAgent.value, forHTTPHeaderField: "User-Agent")
+        if let route { request.setValue(route.token, forHTTPHeaderField: ProxyAccess.tokenHeader) }
         request.timeoutInterval = 15
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        if status == 401, route != nil {
+            log.error("[duotemp] Error: proxy refused the token; calling \(direct.host() ?? "") directly")
+            ProxyAccess.tokenRejected()
+            return try await get(proxyPath: proxyPath, direct: direct)
+        }
         guard status == 200 else {
             log.error("[duotemp] Error: \(url.host() ?? "") returned HTTP \(status)")
             throw URLError(.badServerResponse)

@@ -2,8 +2,9 @@ import Foundation
 import OSLog
 
 /// MET Norway Locationforecast 2.0 and Sunrise 3.0, the data behind Yr. Follows https://api.met.no/doc/TermsOfService:
-/// - goes through duoTemp's caching proxy (`METBaseURL`), which shares one MET response between nearby
-///   users until its `Expires` and identifies duoTemp to MET with a contact address;
+/// - goes through duoTemp's caching proxy when the app holds a proxy token (`ProxyAccess`), which shares one
+///   MET response between nearby users until its `Expires`; otherwise calls MET directly;
+/// - identifies the app to MET with `UserAgent`;
 /// - rounds coordinates to 2 decimals (about 1 km; the terms allow at most 4);
 /// - caches responses in the app group so the app and widgets share them, serving them until `Expires`.
 enum METClient {
@@ -58,7 +59,9 @@ enum METClient {
     }
 
     private static func get(_ path: String, latitude: Double, longitude: Double, extra: [URLQueryItem] = []) async throws -> Data {
-        guard var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false) else {
+        let route = ProxyAccess.route()
+        let base = route.map { $0.base.appending(path: "met") } ?? directURL
+        guard var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false) else {
             throw URLError(.badURL)
         }
         components.queryItems = [
@@ -72,6 +75,7 @@ enum METClient {
 
         var request = URLRequest(url: url)
         request.setValue(UserAgent.value, forHTTPHeaderField: "User-Agent")
+        if let route { request.setValue(route.token, forHTTPHeaderField: ProxyAccess.tokenHeader) }
         let (data, response) = try await session.data(for: request)
 
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -80,6 +84,10 @@ enum METClient {
             break
         case 203:
             log.warning("[duotemp] MET \(path) is deprecated; upgrade before it is removed")
+        case 401 where route != nil:
+            log.error("[duotemp] Error: proxy refused the token; calling MET directly")
+            ProxyAccess.tokenRejected()
+            return try await get(path, latitude: latitude, longitude: longitude, extra: extra)
         case 429:
             log.error("[duotemp] Error: MET rate limit (429) on \(path)")
             throw METError.rateLimited
@@ -90,8 +98,8 @@ enum METClient {
         return data
     }
 
-    /// `METBaseURL` from Info.plist (set by MET_BASE_URL in Config/Base.xcconfig), so release builds can use the proxy.
-    private static var baseURL: URL {
+    /// MET itself: `METBaseURL` from Info.plist (MET_BASE_URL in Config/Base.xcconfig).
+    private static var directURL: URL {
         let configured = Bundle.main.object(forInfoDictionaryKey: "METBaseURL") as? String
         return configured.flatMap(URL.init(string:)) ?? URL(string: "https://api.met.no/weatherapi")!
     }

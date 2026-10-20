@@ -57,6 +57,8 @@ final class LocationsModel {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
+        // Runs alongside the fetches; until a token arrives they call the sources directly.
+        Task { await Attestor.shared.refreshIfNeeded() }
 
         let source = source
         var jobs = locations.map {
