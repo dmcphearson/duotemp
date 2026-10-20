@@ -40,7 +40,7 @@ No accounts, analytics, ads or tracking. Your location stays on the device; only
 4. Run the `Duotemp` scheme on a device, then add the widget from the Home Screen.
 
 ## Data sources
-- **MET Norway**: Locationforecast 2.0 (the data behind Yr), [CC BY 4.0](https://api.met.no/doc/License). The app follows the [terms of service](https://api.met.no/doc/TermsOfService): an identifying User-Agent, cached responses honouring `Expires` and `If-Modified-Since`, and rounded coordinates. Set `MET_BASE_URL` in `Config/Base.xcconfig` to route requests through a caching proxy.
+- **MET Norway**: Locationforecast 2.0 (the data behind Yr), [CC BY 4.0](https://api.met.no/doc/License). The app follows the [terms of service](https://api.met.no/doc/TermsOfService): an identifying User-Agent, cached responses honouring `Expires` and `If-Modified-Since`, and rounded coordinates. Builds call MET directly by default; to route MET and the aurora files through your own caching proxy (such as `proxy/`), set `PROXY_BASE_URL` and `MET_BASE_URL` in `Config/Local.xcconfig` as `Config/Base.xcconfig` describes. duoTemp's own proxy only serves duoTemp's App Store builds.
 - **Apple Weather**: WeatherKit, with Apple's attribution shown in the app.
 
 Every third-party service, framework and asset, with its licence, is listed in [THIRD_PARTY.md](THIRD_PARTY.md).
