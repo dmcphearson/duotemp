@@ -11,12 +11,7 @@ APP_ID = "J479S78JUN.me.mcphearson.duotemp"
 # "log" serves requests without a valid token and logs it; "enforce" refuses them.
 ATTEST_MODE = "log"
 
-# Workers Logs, sampled, to see what share of requests carries a valid token before enforcing.
-# Only the proxy's own lines are kept: invocation logs would record each request's URL
-# (coordinates) and client details, which the privacy policy says the proxy doesn't keep.
+# Workers Logs off: Cloudflare attaches each request's URL (coordinates) to every log line,
+# and the privacy policy says the proxy keeps no logs. Console output shows only in a live `wrangler tail`.
 [observability]
-enabled = true
-head_sampling_rate = 0.1
-
-[observability.logs]
-invocation_logs = false
+enabled = false
