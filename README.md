@@ -7,7 +7,7 @@
 
 Weather widgets for iPhone that show Celsius and Fahrenheit together, with feels-like on every size.
 
-- Home Screen widgets for where you are: small, and medium with a six-hour forecast.
+- Home Screen widgets for where you are or any saved place: small, and medium with a six-hour forecast.
 - Choose which unit leads; the other is always beside it.
 - Forecasts from [MET Norway](https://api.met.no) by default, with Apple Weather filling gaps or as the main source.
 
