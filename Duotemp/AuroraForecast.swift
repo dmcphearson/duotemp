@@ -3,8 +3,8 @@ import OSLog
 
 /// Planetary Kp in 3-hour blocks for the next few days. GFZ Potsdam's ensemble forecast first,
 /// NOAA SWPC's single forecast if GFZ is down (source preference: Europe, then Canada, then US).
-struct KpForecast: Sendable {
-    enum Source: Sendable {
+struct KpForecast: Codable, Sendable {
+    enum Source: Codable, Sendable {
         case gfz, noaa
 
         var credit: String {
@@ -22,7 +22,7 @@ struct KpForecast: Sendable {
         }
     }
 
-    struct Block: Sendable {
+    struct Block: Codable, Sendable {
         /// Start of the 3-hour block, UTC.
         let start: Date
         let median: Double
@@ -45,33 +45,37 @@ enum AuroraClient {
     private static let gfzDirect = URL(string: "https://spaceweather.gfz.de/fileadmin/Kp-Forecast/CSV/kp_product_file_FORECAST_PAGER_SWIFT_LAST.csv")!
     private static let noaaDirect = URL(string: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json")!
 
-    /// The forecast is global, so one fetch serves every location until it's 30 minutes old.
-    private static let memo = Memo()
+    /// The forecast is global, so one fetch serves every location, across launches, until it's 30 minutes old.
+    private static let maxAge: TimeInterval = 30 * 60
+    private static let storeKey = "kpForecast"
+    /// How long GFZ gets before NOAA's forecast, fetched alongside, is shown instead.
+    private static let gfzWait: Duration = .seconds(3)
 
     static func forecast() async throws -> KpForecast {
-        if let cached = await memo.value { return cached }
-        let forecast: KpForecast
-        do {
-            forecast = try parseGFZ(try await get(proxyPath: "aurora/gfz", direct: gfzDirect))
-        } catch {
-            log.warning("[duotemp] GFZ Kp forecast failed (\(error.localizedDescription)); trying NOAA")
-            forecast = try parseNOAA(try await get(proxyPath: "aurora/noaa", direct: noaaDirect))
-        }
-        await memo.store(forecast)
+        if let saved = saved() { return saved }
+        let forecast = try await preferred({ try parseGFZ(try await get(proxyPath: "aurora/gfz", direct: gfzDirect)) },
+                                           within: gfzWait,
+                                           else: { try parseNOAA(try await get(proxyPath: "aurora/noaa", direct: noaaDirect)) })
+        if forecast.source == .noaa { log.warning("[duotemp] GFZ Kp forecast slow or failed; showing NOAA") }
+        save(forecast)
         return forecast
     }
 
-    private actor Memo {
-        private var stored: (forecast: KpForecast, at: Date)?
+    private struct Saved: Codable {
+        let forecast: KpForecast
+        let at: Date
+    }
 
-        var value: KpForecast? {
-            guard let stored, Date().timeIntervalSince(stored.at) < 30 * 60 else { return nil }
-            return stored.forecast
-        }
+    private static func saved() -> KpForecast? {
+        guard let data = UserDefaults.standard.data(forKey: storeKey),
+              let saved = try? JSONDecoder().decode(Saved.self, from: data),
+              Date().timeIntervalSince(saved.at) < maxAge
+        else { return nil }
+        return saved.forecast
+    }
 
-        func store(_ forecast: KpForecast) {
-            stored = (forecast, .now)
-        }
+    private static func save(_ forecast: KpForecast) {
+        UserDefaults.standard.set(try? JSONEncoder().encode(Saved(forecast: forecast, at: .now)), forKey: storeKey)
     }
 
     private static func get(proxyPath: String, direct: URL) async throws -> Data {
