@@ -52,7 +52,7 @@ struct SkyScene: View {
         self.sunFollowsTime = sunFollowsTime
         self.animated = animated
         moonPhase = Lunar.phase(at: hour.date)
-        symbolName = hour.symbolName
+        symbolName = hour.skySymbol
         isDaylight = hour.isDaylight
         track = SunTrack(hour: hour, next: next)
         slant = Self.slant(windSpeed: hour.windSpeed, from: hour.windFromDirection)
@@ -69,7 +69,7 @@ struct SkyScene: View {
     static func moonStrength(hour: WeatherSnapshot.Hour, next: WeatherSnapshot.Hour?, at date: Date) -> Double {
         let elevation = SunTrack(hour: hour, next: next).at(date).elevation
         let decor = Decor(
-            symbolName: hour.symbolName, glow: 0, moonPhase: 0,
+            symbolName: hour.skySymbol, glow: 0, moonPhase: 0,
             daylight: daylight(elevation: elevation, isDaylight: hour.isDaylight), slant: 0
         )
         return decor.moon ? decor.night : 0

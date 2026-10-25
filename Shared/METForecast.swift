@@ -73,8 +73,8 @@ struct METForecast: Decodable, Sendable {
         // Hourly steps carry next_1_hours; the long-range tail is 6-hourly and is dropped.
         let hourly: [WeatherSnapshot.Hour] = steps.compactMap { step in
             guard let code = step.data.next1Hours?.summary.symbolCode else { return nil }
-            let symbol = METSymbol(code: code)
             let details = step.data.instant.details
+            let symbol = METSymbol(code: code, windSpeed: details.windSpeed)
             return WeatherSnapshot.Hour(
                 date: step.time,
                 temperature: DualTemp(celsius: details.airTemperature),
@@ -85,7 +85,8 @@ struct METForecast: Decodable, Sendable {
                 sunProgress: point.flatMap { $0.count >= 2 ? Solar.dayProgress(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
                 sunElevation: point.flatMap { $0.count >= 2 ? Solar.elevation(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
                 windSpeed: details.windSpeed,
-                windFromDirection: details.windFromDirection
+                windFromDirection: details.windFromDirection,
+                skySymbolName: symbol.skySymbolName
             )
         }
         guard let current = hourly.last(where: { $0.date <= now }) ?? hourly.first else {

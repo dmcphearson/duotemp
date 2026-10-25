@@ -15,7 +15,7 @@ extension METForecast {
                 return ForecastDetail.Hour(
                     date: step.time,
                     temperature: DualTemp(celsius: step.data.instant.details.airTemperature),
-                    symbolName: METSymbol(code: period.summary.symbolCode).symbolName,
+                    symbolName: METSymbol(code: period.summary.symbolCode, windSpeed: step.data.instant.details.windSpeed).symbolName,
                     precipitationMM: period.details?.precipitationAmount,
                     precipitationChance: nil,
                     cloudCover: step.data.instant.details.cloudAreaFraction.map { $0 / 100 }
@@ -47,7 +47,7 @@ extension METForecast {
             let isToday = day == today
             return ForecastDetail.Day(
                 date: day,
-                symbolName: code.map { METSymbol(code: $0).symbolName } ?? "cloud",
+                symbolName: code.map { METSymbol(code: $0, windSpeed: symbolStep?.data.instant.details.windSpeed).symbolName } ?? "cloud",
                 high: isToday ? snapshot.high : DualTemp(celsius: temperatures.max() ?? 0),
                 low: isToday ? snapshot.low : DualTemp(celsius: temperatures.min() ?? 0),
                 precipitationMM: rain,

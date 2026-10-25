@@ -19,6 +19,10 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         var windSpeed: Double? = nil
         /// Degrees the wind blows from.
         var windFromDirection: Double? = nil
+        /// The sky to draw when the icon shows something the sky can't (wind); nil draws from `symbolName`.
+        var skySymbolName: String? = nil
+
+        var skySymbol: String { skySymbolName ?? symbolName }
     }
 
     let placeName: String
