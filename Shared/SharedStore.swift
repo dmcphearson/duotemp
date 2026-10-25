@@ -115,6 +115,28 @@ enum SharedStore {
 
     private static let appleSnapshotsKey = "appleSnapshots"
 
+    /// Alerts for a Yr place while they're younger than `maxAge`, so refreshes don't each spend a WeatherKit call.
+    static func cachedAlerts(latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) -> [ActiveAlert]? {
+        guard let cached = read([String: CachedAlerts].self, alertsKey)?[coordinateKey(latitude, longitude)],
+              now.timeIntervalSince(cached.fetchedAt) < maxAge
+        else { return nil }
+        return cached.alerts
+    }
+
+    /// Saves a place's alerts and drops entries older than `maxAge`.
+    static func cacheAlerts(_ alerts: [ActiveAlert], latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) {
+        var all = (read([String: CachedAlerts].self, alertsKey) ?? [:]).filter { now.timeIntervalSince($0.value.fetchedAt) < maxAge }
+        all[coordinateKey(latitude, longitude)] = CachedAlerts(fetchedAt: now, alerts: alerts)
+        write(all, alertsKey)
+    }
+
+    private static let alertsKey = "alerts"
+
+    private struct CachedAlerts: Codable {
+        let fetchedAt: Date
+        let alerts: [ActiveAlert]
+    }
+
     /// Coordinates at 2 decimals (~1 km), the precision every request already uses.
     private static func coordinateKey(_ latitude: Double, _ longitude: Double) -> String {
         String(format: "%.2f,%.2f", latitude, longitude)

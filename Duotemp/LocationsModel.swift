@@ -76,7 +76,13 @@ final class LocationsModel {
         await withTaskGroup(of: (String, WeatherSnapshot?).self) { group in
             for job in jobs {
                 group.addTask {
-                    (job.key, try? await source.snapshot(latitude: job.latitude, longitude: job.longitude, placeName: job.name, timeZoneID: job.timeZoneID))
+                    // Apple snapshots carry their alerts; Yr places get them from a separate WeatherKit call.
+                    async let alerts = source == .yr ? AlertsClient.alerts(latitude: job.latitude, longitude: job.longitude) : nil
+                    guard var snapshot = try? await source.snapshot(latitude: job.latitude, longitude: job.longitude, placeName: job.name, timeZoneID: job.timeZoneID) else {
+                        return (job.key, nil)
+                    }
+                    if snapshot.alerts == nil { snapshot.alerts = await alerts }
+                    return (job.key, snapshot)
                 }
             }
             for await (key, snapshot) in group {
@@ -115,6 +121,8 @@ final class LocationsModel {
         if let sample = SampleSkies.detail(for: target.key) { return sample }
         #endif
         var detail = try await DetailClient.detail(primary: source, target: target)
+        // A Yr detail has alerts only when WeatherKit answered; otherwise keep the list's.
+        if detail.snapshot.alerts == nil { detail.snapshot.alerts = snapshots[target.key]?.alerts }
         detail.snapshot = SharedStore.cache(detail.snapshot, key: target.key)
         snapshots[target.key] = detail.snapshot
         failed.remove(target.key)

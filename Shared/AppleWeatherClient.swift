@@ -5,19 +5,42 @@ import WeatherKit
 enum AppleWeatherClient {
     static func snapshot(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> WeatherSnapshot {
         let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
-        let (current, hourly, daily) = try await WeatherService.shared.weather(for: location, including: .current, .hourly, .daily)
-        return makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: .now)
+        // Alerts ride along: a request counts as one call however many data sets it includes.
+        let (current, hourly, daily, alerts) = try await WeatherService.shared.weather(for: location, including: .current, .hourly, .daily, .alerts)
+        var snapshot = makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: .now)
+        snapshot.alerts = activeAlerts(alerts)
+        return snapshot
+    }
+
+    /// Alerts alone, for places whose forecast comes from Yr.
+    static func alerts(latitude: Double, longitude: Double) async throws -> [ActiveAlert] {
+        let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
+        return activeAlerts(try await WeatherService.shared.weather(for: location, including: .alerts))
+    }
+
+    /// Nil from WeatherKit (no alert service in that country) reads as none.
+    private static func activeAlerts(_ alerts: [WeatherAlert]?) -> [ActiveAlert] {
+        (alerts ?? []).map { alert in
+            ActiveAlert(
+                summary: alert.summary,
+                region: alert.region,
+                source: alert.source,
+                severity: ActiveAlert.Severity(rawValue: alert.severity.rawValue) ?? .unknown,
+                detailsURL: alert.detailsURL
+            )
+        }
     }
 
     static func detail(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> ForecastDetail {
         let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
         let now = Date()
         let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
-        let (current, hourly, daily) = try await WeatherService.shared.weather(
+        let (current, hourly, daily, alerts) = try await WeatherService.shared.weather(
             for: location,
-            including: .current, .hourly(startDate: start, endDate: start.addingTimeInterval(48 * 3600)), .daily
+            including: .current, .hourly(startDate: start, endDate: start.addingTimeInterval(48 * 3600)), .daily, .alerts
         )
-        let snapshot = makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: now)
+        var snapshot = makeSnapshot(current: current, hourly: hourly, daily: daily, location: location, placeName: placeName, timeZoneID: timeZoneID, now: now)
+        snapshot.alerts = activeAlerts(alerts)
 
         let hours = hourly.forecast.map { hour in
             ForecastDetail.Hour(

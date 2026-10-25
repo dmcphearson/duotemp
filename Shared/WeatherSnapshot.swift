@@ -34,6 +34,8 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
     let low: DualTemp
     /// Hourly forecast after `current`, oldest first.
     let hours: [Hour]
+    /// Active weather alerts from WeatherKit; nil when they weren't fetched, empty when there are none.
+    var alerts: [ActiveAlert]? = nil
 
     var timeZone: TimeZone {
         timeZoneID.flatMap(TimeZone.init(identifier:)) ?? .current
@@ -59,7 +61,8 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
             current: current,
             high: DualTemp(celsius: max(high.celsius, earlier.high.celsius)),
             low: DualTemp(celsius: min(low.celsius, earlier.low.celsius)),
-            hours: hours
+            hours: hours,
+            alerts: alerts
         )
     }
 

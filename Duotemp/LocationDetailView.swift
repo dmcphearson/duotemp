@@ -17,6 +17,9 @@ struct LocationDetailView: View {
         ScrollView {
             VStack(spacing: 16) {
                 if let snapshot = detail?.snapshot ?? model.snapshots[target.key] {
+                    if let alerts = snapshot.alerts, !alerts.isEmpty {
+                        AlertBanner(alerts: alerts)
+                    }
                     header(snapshot)
                 }
                 if let detail {
