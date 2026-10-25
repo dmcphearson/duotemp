@@ -19,14 +19,18 @@ const AURORA = {
 // MET sets Expires on every response; keep its own lifetime within sensible bounds.
 const MIN_TTL = 60;
 const MAX_TTL = 6 * 3600;
-// The Kp forecasts update every few hours; half an hour matches the app's own memo.
+// The Kp forecasts update every few hours; half an hour matches the app's own memo. GFZ can take
+// 20 s or more to answer, so an older copy is served at once while a fresh one is fetched, until it's
+// six hours old and too out of date to show.
 const AURORA_TTL = 30 * 60;
+const AURORA_STALE = 6 * 3600;
+const FETCHED_AT = "X-Fetched-At";
 
 /** The upstream URL for a request, or an error response when the request isn't one the app makes. */
 export function route(url) {
   const path = url.pathname.replace(/\/+$/, "");
   if (AURORA[path]) {
-    return { upstream: AURORA[path], ttl: AURORA_TTL };
+    return { upstream: AURORA[path], ttl: AURORA_TTL, stale: AURORA_STALE };
   }
   if (path === "/met/locationforecast/2.0/complete" || path === "/met/sunrise/3.0/sun") {
     const lat = coordinate(url.searchParams.get("lat"), 90);
@@ -96,10 +100,24 @@ export async function handle(request, { cache, fetchUpstream, now = Date.now(), 
   // One cache entry per upstream URL, whatever order or precision the query arrived in.
   const key = new Request(`${url.origin}/cache?u=${encodeURIComponent(target.upstream)}`);
   const cached = await cache.match(key);
-  if (cached) {
+  if (cached && !target.stale) {
     return withHeader(cached, "X-Cache", "HIT");
   }
+  if (cached) {
+    const age = (now - Number(cached.headers.get(FETCHED_AT))) / 1000;
+    if (age < target.ttl) return servedCopy(cached, "HIT", target.ttl);
+    if (age < target.stale) {
+      // A failed refresh keeps this copy until it's too old. Nobody reads the refreshed response, and its
+      // cancel isn't awaited, since a split body only settles once both halves do.
+      waitUntil(fetchAndStore(target, key, { cache, fetchUpstream, now, waitUntil }).then((r) => { r.body?.cancel(); }, () => {}));
+      return servedCopy(cached, "STALE", target.ttl);
+    }
+  }
+  return fetchAndStore(target, key, { cache, fetchUpstream, now, waitUntil });
+}
 
+/** Fetches the upstream URL and caches a good answer under `key`. */
+async function fetchAndStore(target, key, { cache, fetchUpstream, now, waitUntil }) {
   let upstream;
   try {
     upstream = await fetchUpstream(target.upstream, {
@@ -124,7 +142,13 @@ export async function handle(request, { cache, fetchUpstream, now = Date.now(), 
   const ttl = target.ttl ?? ttlFromExpires(upstream.headers.get("Expires"), now);
   headers.set("Cache-Control", `public, max-age=${ttl}`);
   const response = new Response(upstream.body, { status: upstream.status, headers });
-  waitUntil(cache.put(key, response.clone()));
+  const stored = response.clone();
+  if (target.stale) {
+    // Kept past its lifetime so it can be served stale; the clients still get max-age=ttl.
+    stored.headers.set("Cache-Control", `public, max-age=${ttl + target.stale}`);
+    stored.headers.set(FETCHED_AT, String(now));
+  }
+  waitUntil(cache.put(key, stored));
   return response;
 }
 
@@ -181,6 +205,14 @@ function json(status, message) {
     status,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
+}
+
+/** A stored aurora copy as clients get it: their own lifetime, without the proxy's bookkeeping. */
+function servedCopy(cached, status, ttl) {
+  const copy = withHeader(cached, "X-Cache", status);
+  copy.headers.set("Cache-Control", `public, max-age=${ttl}`);
+  copy.headers.delete(FETCHED_AT);
+  return copy;
 }
 
 function withHeader(response, name, value) {
