@@ -69,6 +69,54 @@ test("aurora files map to GFZ and NOAA and cache for half an hour", async () => 
     "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json");
 });
 
+/** Answers with "v1", "v2"… so tests can tell copies apart; `failing` makes later calls throw. */
+function versions() {
+  let n = 0;
+  const state = { failing: false, calls: 0 };
+  state.fetchUpstream = async () => {
+    state.calls += 1;
+    if (state.failing) throw new Error("down");
+    n += 1;
+    return new Response(`v${n}`, { status: 200, headers: { "Content-Type": "text/csv" } });
+  };
+  return state;
+}
+
+test("an aurora file older than half an hour is served at once while a fresh copy is fetched", async () => {
+  const cache = memoryCache();
+  const source = versions();
+  const pending = [];
+  const deps = (now) => ({ cache, fetchUpstream: source.fetchUpstream, now, waitUntil: (p) => pending.push(p) });
+
+  assert.equal(await (await handle(get("/aurora/gfz"), deps(NOW))).text(), "v1");
+  await Promise.all(pending.splice(0));
+  const stale = await handle(get("/aurora/gfz"), deps(NOW + 31 * 60_000));
+  assert.equal(stale.headers.get("X-Cache"), "STALE");
+  assert.equal(stale.headers.get("Cache-Control"), "public, max-age=1800");
+  assert.equal(stale.headers.get("X-Fetched-At"), null);
+  assert.equal(await stale.text(), "v1");
+  await Promise.all(pending.splice(0));
+  const fresh = await handle(get("/aurora/gfz"), deps(NOW + 32 * 60_000));
+  assert.equal(fresh.headers.get("X-Cache"), "HIT");
+  assert.equal(await fresh.text(), "v2");
+  assert.equal(source.calls, 2);
+});
+
+test("a stale aurora file stays when the refresh fails, until it is six hours old", async () => {
+  const cache = memoryCache();
+  const source = versions();
+  const pending = [];
+  const deps = (now) => ({ cache, fetchUpstream: source.fetchUpstream, now, waitUntil: (p) => pending.push(p) });
+
+  await handle(get("/aurora/gfz"), deps(NOW));
+  await Promise.all(pending.splice(0));
+  source.failing = true;
+  const stale = await handle(get("/aurora/gfz"), deps(NOW + 5 * 3600_000));
+  assert.equal(await stale.text(), "v1");
+  await Promise.all(pending.splice(0));
+  assert.equal((await handle(get("/aurora/gfz"), deps(NOW + 7 * 3600_000))).status, 502);
+});
+
 test("anything else is refused without reaching upstream", async () => {
   const { calls, fetchUpstream } = upstream(200, "{}");
   const deps = { cache: memoryCache(), fetchUpstream, now: NOW };
