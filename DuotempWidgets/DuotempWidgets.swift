@@ -10,9 +10,9 @@ struct DuotempWidgets: WidgetBundle {
 
 struct WeatherWidget: Widget {
     var body: some WidgetConfiguration {
-        // Free widgets show My Location on the Home Screen only. Lock Screen sizes and choosing a saved
-        // place (SelectLocationIntent) are for the paid tier.
-        StaticConfiguration(kind: "WeatherWidget", provider: Provider()) { entry in
+        // Home Screen sizes; the Lock Screen sizes return with their restyle. Widgets added before places
+        // could be chosen have no location set and show My Location.
+        AppIntentConfiguration(kind: "WeatherWidget", intent: SelectLocationIntent.self, provider: Provider()) { entry in
             WeatherWidgetView(entry: entry)
                 .containerBackground(for: .widget) { WidgetBackground(entry: entry) }
         }

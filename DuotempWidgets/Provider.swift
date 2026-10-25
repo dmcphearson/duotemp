@@ -11,24 +11,19 @@ struct WeatherEntry: TimelineEntry {
     }
 }
 
-struct Provider: TimelineProvider {
+struct Provider: AppIntentTimelineProvider {
     private enum Failure: Error { case locationRemoved }
 
     func placeholder(in context: Context) -> WeatherEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping @Sendable (WeatherEntry) -> Void) {
-        guard !context.isPreview else { return completion(.placeholder) }
-        Task { completion(await entry(for: .current)) }
+    func snapshot(for configuration: SelectLocationIntent, in context: Context) async -> WeatherEntry {
+        context.isPreview ? .placeholder : await entry(for: configuration.location ?? .current)
     }
 
-    func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<WeatherEntry>) -> Void) {
-        Task { completion(await timeline(for: .current)) }
-    }
-
-    private func timeline(for target: LocationEntity) async -> Timeline<WeatherEntry> {
-        let first = await entry(for: target)
+    func timeline(for configuration: SelectLocationIntent, in context: Context) async -> Timeline<WeatherEntry> {
+        let first = await entry(for: configuration.location ?? .current)
         // Step through the hourly forecast on the hour so the widget stays current between fetches.
         let hourly = (first.snapshot?.upcoming(after: first.date) ?? []).map {
             WeatherEntry(date: $0.date, snapshot: first.snapshot, lead: first.lead, isCurrentLocation: first.isCurrentLocation)
