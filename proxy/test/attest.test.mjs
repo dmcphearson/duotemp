@@ -73,13 +73,15 @@ test("tokens verify until they expire and only with the secret", async () => {
 // The full flow through the proxy, with the fixture's root and app ID standing in for Apple's.
 function deps(mode, overrides = {}) {
   const logs = [];
+  const counted = [];
   return {
     logs,
+    counted,
     cache: { async match() {}, async put() {} },
     fetchUpstream: async () => new Response("{}", { status: 200, headers: { Expires: "Tue, 20 Oct 2026 12:30:00 GMT" } }),
     now: NOW,
     waitUntil: (p) => p,
-    attest: { secret: SECRET, appId: fixture.appId, mode, rootDer: bytes(fixture.root), log: (line) => logs.push(line) },
+    attest: { secret: SECRET, appId: fixture.appId, mode, rootDer: bytes(fixture.root), log: (line) => logs.push(line), count: (point) => counted.push(point) },
     ...overrides,
   };
 }
@@ -125,6 +127,15 @@ test("log mode serves requests without a token and records them", async () => {
   const { token } = await issueToken(SECRET, NOW);
   assert.equal((await handle(forecast(token), d)).status, 200);
   assert.deepEqual(d.logs, ["[duotemp-proxy] token missing", "[duotemp-proxy] token invalid", "[duotemp-proxy] token valid"]);
+});
+
+test("each token check is counted with its status and nothing from the request", async () => {
+  const d = deps("enforce");
+  await handle(forecast(), d);
+  await handle(forecast("bad"), d);
+  const { token } = await issueToken(SECRET, NOW);
+  await handle(forecast(token), d);
+  assert.deepEqual(d.counted, ["missing", "invalid", "valid"].map((status) => ({ blobs: [status], indexes: [status] })));
 });
 
 test("enforce mode refuses requests without a valid token", async () => {

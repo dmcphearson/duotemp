@@ -11,6 +11,12 @@ APP_ID = "J479S78JUN.me.mcphearson.duotemp"
 # "log" serves requests without a valid token and logs it; "enforce" refuses them.
 ATTEST_MODE = "log"
 
+# Counts of App Attest token status (valid, missing, invalid) and nothing else, for deciding when to enforce.
+# Read with the SQL API; see CLAUDE.md.
+[[analytics_engine_datasets]]
+binding = "TOKEN_STATUS"
+dataset = "duotemp_token_status"
+
 # Workers Logs off: Cloudflare attaches each request's URL (coordinates) to every log line,
 # and the privacy policy says the proxy keeps no logs. Console output shows only in a live `wrangler tail`.
 [observability]

@@ -86,6 +86,8 @@ export async function handle(request, { cache, fetchUpstream, now = Date.now(), 
     const token = request.headers.get(TOKEN_HEADER);
     const status = !token ? "missing" : (await checkToken(attest.secret, token, now)) ? "valid" : "invalid";
     attest.log?.(`[duotemp-proxy] token ${status}`);
+    // Counts for deciding when to enforce: the status alone, never the URL, IP or any other request field.
+    attest.count?.({ blobs: [status], indexes: [status] });
     if (attest.mode === "enforce" && status !== "valid") {
       return json(401, "a valid app token is required");
     }

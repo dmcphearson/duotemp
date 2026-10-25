@@ -12,6 +12,8 @@ export default {
         appId: env.APP_ID,
         mode: env.ATTEST_MODE,
         log: (line) => console.log(line),
+        // Analytics Engine; writes return immediately and aren't awaited.
+        count: (point) => env.TOKEN_STATUS?.writeDataPoint(point),
       },
     });
   },
