@@ -24,7 +24,20 @@ enum SampleSkies {
         /// Where the detail screen thinks the place is: it decides whether the northern lights card shows.
         var latitude = 53.35
         var longitude = -6.26
+        var alerts: [ActiveAlert] = []
     }
+
+    /// Shows the alert badge and the alert card with two alerts; the link is the agency's public warnings page.
+    private static let sampleAlerts = [
+        ActiveAlert(
+            summary: "Orange Thunderstorm Warning", region: "Dublin", source: "Met Éireann",
+            severity: .severe, detailsURL: URL(string: "https://www.met.ie/warnings")!
+        ),
+        ActiveAlert(
+            summary: "Yellow Rain Warning", region: "Dublin", source: "Met Éireann",
+            severity: .moderate, detailsURL: URL(string: "https://www.met.ie/warnings")!
+        ),
+    ]
 
     private static let skies: [Sky] = [
         Sky(id: "clear-day", name: "Clear Day", condition: "Clear", symbol: "sun.max", isDaylight: true, sunProgress: 0.35, sunElevation: 25, celsius: 16),
@@ -40,7 +53,7 @@ enum SampleSkies {
         Sky(id: "drizzle", name: "Drizzle", condition: "Light Rain", symbol: "cloud.drizzle", isDaylight: true, sunProgress: 0.4, sunElevation: 20, celsius: 11, rainMM: 0.3, rainChance: 0.6, windSpeed: 2, windFrom: 270),
         Sky(id: "rain", name: "Rain", condition: "Rain", symbol: "cloud.rain", isDaylight: true, sunProgress: 0.45, sunElevation: 21, celsius: 10, rainMM: 1.4, rainChance: 0.85, windSpeed: 8, windFrom: 270),
         Sky(id: "heavy-rain", name: "Heavy Rain", condition: "Heavy Rain", symbol: "cloud.heavyrain", isDaylight: true, sunProgress: 0.55, sunElevation: 21, celsius: 10, rainMM: 4.2, rainChance: 0.95, windSpeed: 12, windFrom: 225),
-        Sky(id: "thunderstorm", name: "Thunderstorm", condition: "Rain and Thunder", symbol: "cloud.bolt.rain", isDaylight: true, sunProgress: 0.6, sunElevation: 18, celsius: 13, rainMM: 5.1, rainChance: 0.9, windSpeed: 14, windFrom: 100),
+        Sky(id: "thunderstorm", name: "Thunderstorm", condition: "Rain and Thunder", symbol: "cloud.bolt.rain", isDaylight: true, sunProgress: 0.6, sunElevation: 18, celsius: 13, rainMM: 5.1, rainChance: 0.9, windSpeed: 14, windFrom: 100, alerts: sampleAlerts),
         Sky(id: "snow", name: "Snow", condition: "Light Snow", symbol: "cloud.snow", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -1, rainMM: 0.8, rainChance: 0.7, windSpeed: 1, windFrom: 0),
         Sky(id: "heavy-snow", name: "Heavy Snow", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -3, rainMM: 3, rainChance: 0.95, windSpeed: 11, windFrom: 70),
         Sky(id: "fog", name: "Fog", condition: "Fog", symbol: "cloud.fog", isDaylight: true, sunProgress: 0.25, sunElevation: 9, celsius: 6),
@@ -178,7 +191,8 @@ enum SampleSkies {
             current: current,
             high: DualTemp(celsius: sky.celsius + 4),
             low: DualTemp(celsius: sky.celsius - 3),
-            hours: []
+            hours: [],
+            alerts: sky.alerts
         )
     }
 

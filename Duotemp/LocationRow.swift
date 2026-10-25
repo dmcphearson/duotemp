@@ -33,10 +33,16 @@ struct LocationRow: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(name)
-                        .font(.title2.weight(.bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                    HStack(spacing: 6) {
+                        Text(name)
+                            .font(.title2.weight(.bold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                        if let alert = snapshot?.alerts?.bySeverity.first {
+                            AlertBadge(severity: alert.severity)
+                                .font(.headline)
+                        }
+                    }
                     subtitle
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(SkyStyle.secondary)

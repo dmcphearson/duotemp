@@ -72,7 +72,7 @@ struct ForecastDetail: Codable, Sendable {
     var conditions: Conditions
     var sources: [Field: WeatherSource]
 
-    /// Fills chance of rain, gusts, visibility and sun times from Apple where this detail has none.
+    /// Fills chance of rain, gusts, visibility, sun times and alerts from Apple where this detail has none.
     /// Temperatures, conditions and rain amounts always stay with the primary source.
     func backfilled(from apple: ForecastDetail?) -> ForecastDetail {
         guard let apple else { return self }
@@ -111,6 +111,7 @@ struct ForecastDetail: Codable, Sendable {
             result.conditions.sunset = apple.conditions.sunset
             result.sources[.sun] = .apple
         }
+        if result.snapshot.alerts == nil { result.snapshot.alerts = apple.snapshot.alerts }
         return result
     }
 }
