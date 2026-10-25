@@ -5,10 +5,28 @@ import Foundation
 struct METSymbol: Hashable, Sendable {
     let condition: String
     let symbolName: String
+    /// The code's own sky when the icon shows something the sky can't draw (wind); nil when it's `symbolName`.
+    let skySymbolName: String?
 
-    private init(_ condition: String, _ symbolName: String) {
+    /// Sustained wind in m/s from which a dry hour shows as windy: Beaufort 6, strong breeze.
+    static let windySpeed = 10.8
+
+    private init(_ condition: String, _ symbolName: String, sky: String? = nil) {
         self.condition = condition
         self.symbolName = symbolName
+        skySymbolName = sky
+    }
+
+    /// MET's codes have no wind condition, so a dry, fog-free hour at `windySpeed` or more shows as windy.
+    /// Rain, sleet, snow, thunder and fog keep their icon.
+    init(code: String, windSpeed: Double?) {
+        let symbol = METSymbol(code: code)
+        let base = code.split(separator: "_").first.map(String.init) ?? code
+        if let windSpeed, windSpeed >= Self.windySpeed, ["clearsky", "fair", "partlycloudy", "cloudy"].contains(base) {
+            self.init("Windy", "wind", sky: symbol.symbolName)
+        } else {
+            self = symbol
+        }
     }
 
     init(code: String) {

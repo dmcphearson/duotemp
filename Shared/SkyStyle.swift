@@ -5,7 +5,7 @@ enum SkyStyle: String, CaseIterable, Sendable {
     case clearDay, cloudyDay, clearNight, cloudyNight, rain, storm, snow, fog, fogNight
 
     init(hour: WeatherSnapshot.Hour) {
-        self.init(symbolName: hour.symbolName, isDaylight: hour.isDaylight)
+        self.init(symbolName: hour.skySymbol, isDaylight: hour.isDaylight)
     }
 
     init(symbolName: String, isDaylight: Bool?) {
