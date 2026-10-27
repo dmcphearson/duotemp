@@ -8,6 +8,8 @@ struct METSymbol: Hashable, Sendable {
     /// The code's own sky when the icon shows something the sky can't draw (wind); nil when it's `symbolName`.
     let skySymbolName: String?
 
+    /// Sustained wind in m/s from which a dry hour shows as breezy: Beaufort 5, fresh breeze.
+    static let breezySpeed = 8.0
     /// Sustained wind in m/s from which a dry hour shows as windy: Beaufort 6, strong breeze.
     static let windySpeed = 10.8
 
@@ -17,16 +19,16 @@ struct METSymbol: Hashable, Sendable {
         skySymbolName = sky
     }
 
-    /// MET's codes have no wind condition, so a dry, fog-free hour at `windySpeed` or more shows as windy.
-    /// Rain, sleet, snow, thunder and fog keep their icon.
+    /// MET's codes have no wind condition, so a dry, fog-free hour shows as breezy from `breezySpeed`
+    /// and windy from `windySpeed`, like WeatherKit. Rain, sleet, snow, thunder and fog keep their icon.
     init(code: String, windSpeed: Double?) {
         let symbol = METSymbol(code: code)
         let base = code.split(separator: "_").first.map(String.init) ?? code
-        if let windSpeed, windSpeed >= Self.windySpeed, ["clearsky", "fair", "partlycloudy", "cloudy"].contains(base) {
-            self.init("Windy", "wind", sky: symbol.symbolName)
-        } else {
+        guard let windSpeed, windSpeed >= Self.breezySpeed, ["clearsky", "fair", "partlycloudy", "cloudy"].contains(base) else {
             self = symbol
+            return
         }
+        self.init(windSpeed >= Self.windySpeed ? "Windy" : "Breezy", "wind", sky: symbol.symbolName)
     }
 
     init(code: String) {
