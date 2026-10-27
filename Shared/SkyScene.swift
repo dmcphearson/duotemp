@@ -397,21 +397,8 @@ private struct Decor {
             )
         )
         context.fill(circle(center, radius), with: .color(.white.opacity(0.1)))
-        // The terminator is a half-ellipse whose width follows cos(phase); the lit limb is a half-circle.
-        let side: CGFloat = moonPhase < 0.5 ? 1 : -1
-        let squash = CGFloat(cos(2 * Double.pi * moonPhase))
         var lit = Path()
-        for step in 0...32 {
-            let y = -radius + 2 * radius * CGFloat(step) / 32
-            let half = (radius * radius - y * y).squareRoot()
-            let point = CGPoint(x: center.x + side * half, y: center.y + y)
-            step == 0 ? lit.move(to: point) : lit.addLine(to: point)
-        }
-        for step in stride(from: 32, through: 0, by: -1) {
-            let y = -radius + 2 * radius * CGFloat(step) / 32
-            let half = (radius * radius - y * y).squareRoot()
-            lit.addLine(to: CGPoint(x: center.x + side * half * squash, y: center.y + y))
-        }
+        lit.addLines(Lunar.litOutline(phase: moonPhase).map { CGPoint(x: center.x + $0.x * radius, y: center.y + $0.y * radius) })
         lit.closeSubpath()
         context.fill(lit, with: .color(.white.opacity(0.92)))
     }
