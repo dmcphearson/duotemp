@@ -23,6 +23,13 @@ struct WeatherSnapshot: Codable, Hashable, Sendable {
         var skySymbolName: String? = nil
 
         var skySymbol: String { skySymbolName ?? symbolName }
+
+        /// How hard a windy hour blows, from 0 at Windy's threshold to 1 at 20 m/s, for the sky's wind wisps;
+        /// nil when the icon isn't wind or the wind is below Windy, so Breezy hours draw none.
+        var windiness: Double? {
+            guard symbolName == "wind", let windSpeed, windSpeed >= METSymbol.windySpeed else { return nil }
+            return min((windSpeed - METSymbol.windySpeed) / (20 - METSymbol.windySpeed), 1)
+        }
     }
 
     let placeName: String

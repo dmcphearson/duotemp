@@ -3,7 +3,8 @@ import SwiftUI
 /// A drawn sky: the SkyStyle gradient plus sun, moon and stars, clouds, rain, snow, fog or lightning.
 /// Still by default, for widgets; `animated` adds gentle motion in the app, and Reduce Motion turns it off.
 /// Between forecast hours the sun's height is interpolated, so sunrise, sunset and twilight build
-/// gradually and the day sky blends into the night one. Rain and snow lean with the hour's wind.
+/// gradually and the day sky blends into the night one. Rain and snow lean with the hour's wind, and
+/// animated windy skies get wisps blowing across them.
 /// Stars and clouds are placed from a seed derived from the place name, so a location keeps the same
 /// sky between refreshes.
 struct SkyScene: View {
@@ -26,6 +27,10 @@ struct SkyScene: View {
     let date: Date?
     /// Sideways drift per point of fall, from the wind; negative leans left.
     let slant: CGFloat
+    /// See `WeatherSnapshot.Hour.windiness`; nil draws no wisps.
+    let windiness: Double?
+    /// The way the wind carries the wisps: 1 to the right, -1 to the left.
+    let windward: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -56,6 +61,8 @@ struct SkyScene: View {
         isDaylight = hour.isDaylight
         track = SunTrack(hour: hour, next: next)
         slant = Self.slant(windSpeed: hour.windSpeed, from: hour.windFromDirection)
+        windiness = hour.windiness
+        windward = (hour.windFromDirection.map { -sin($0 * .pi / 180) } ?? 1) < 0 ? -1 : 1
         seed = place.utf8.reduce(0xCBF2_9CE4_8422_2325) { ($0 ^ UInt64($1)) &* 0x100_0000_01B3 }
     }
 
@@ -89,7 +96,7 @@ struct SkyScene: View {
     }
 
     /// Two layers so slow things don't redraw at the rain's rate: the sky, sun, moon, stars, clouds and
-    /// fog at 12 frames a second, and lightning, rain and snow at 30, only when there are any.
+    /// fog at 12 frames a second, and lightning, rain, snow and wind wisps at 30, only when there are any.
     var body: some View {
         ZStack {
             layer(weather: false, interval: 1.0 / 12)
@@ -102,7 +109,7 @@ struct SkyScene: View {
     }
 
     private var hasWeather: Bool {
-        Decor(symbolName: symbolName, glow: 0, moonPhase: 0, daylight: 1, slant: 0).hasWeather
+        Decor(symbolName: symbolName, glow: 0, moonPhase: 0, daylight: 1, slant: 0).hasWeather || windiness != nil
     }
 
     @ViewBuilder
@@ -130,6 +137,8 @@ struct SkyScene: View {
         decor.cloudSeed = seed ^ 0xC10D_C10D_C10D_C10D
         decor.moonScale = moonScale
         decor.moon = decor.moon && showsMoon
+        decor.wisps = windiness
+        decor.windward = windward
         let seed = weather ? seed ^ 0x5EED_5EED_5EED_5EED : seed
         let celestial = celestial
         let moonAnchor = moonAnchor
@@ -229,6 +238,9 @@ private struct Decor {
     var precipitation: Precipitation?
     var cloudSeed: UInt64 = 0
     var moonScale: CGFloat = 1
+    /// How hard the wind blows for the wisps, 0...1; nil draws none.
+    var wisps: Double?
+    var windward: CGFloat = 1
 
     init(symbolName: String, glow: Double, moonPhase: Double, daylight: Double, slant: CGFloat) {
         self.glow = glow
@@ -257,7 +269,7 @@ private struct Decor {
         }
     }
 
-    var hasWeather: Bool { storm || precipitation != nil }
+    var hasWeather: Bool { storm || precipitation != nil || wisps != nil }
 
     /// Sun, moon, stars, fog and clouds: the slow-moving part.
     func drawBackdrop(
@@ -308,10 +320,11 @@ private struct Decor {
         drawClouds(in: &context, size: size, unit: unit, time: time)
     }
 
-    /// Lightning, rain and snow: the fast-moving part.
+    /// Lightning, rain, snow and wind wisps: the fast-moving part.
     func drawWeather(in context: inout GraphicsContext, size: CGSize, time: Double?, random: inout SeededRandom) {
         let unit = min(size.width, size.height)
         if storm { drawLightning(in: &context, size: size, unit: unit, time: time, random: &random) }
+        if let wisps, let time { drawWisps(in: &context, size: size, strength: wisps, time: time) }
         switch precipitation {
         case .rain(let amount): drawRain(in: &context, size: size, unit: unit, amount: amount, time: time, random: &random)
         case .snow(let heavy): drawSnow(in: &context, size: size, heavy: heavy, time: time, random: &random)
@@ -553,6 +566,69 @@ private struct Decor {
             flakes.addPath(circle(point, radius))
         }
         context.fill(flakes, with: .color(.white.opacity(heavy ? 0.7 : 0.55)))
+    }
+
+    /// Faint streaks blowing across the sky, 3 to 5 at a time, faster and more of them as the wind
+    /// strengthens; about 6 in 10 loop once in the first half of the screen. Each slot replays on its own
+    /// cycle with a fresh path seeded from the cycle number, so nothing is kept between frames.
+    private func drawWisps(in context: inout GraphicsContext, size: CGSize, strength: Double, time: Double) {
+        let brightness = (0.6 + 0.4 * daylight) * (clouds > 2 ? 0.85 : 1)
+        // About two thirds of the width a second at Windy's threshold, a full width at 20 m/s.
+        let speed = size.width * (0.65 + 0.4 * strength)
+        let trail = 0.5, steps = 40
+        for slot in 0..<(3 + Int((2 * strength).rounded())) {
+            let period = 3.4 + 0.45 * Double(slot) - 0.6 * strength
+            let clock = time + 0.9 * Double(slot)
+            let cycle = (clock / period).rounded(.down)
+            let age = clock - cycle * period
+            var random = SeededRandom(state: UInt64(bitPattern: Int64(cycle)) &* 0x9E37_79B9_7F4A_7C15 ^ UInt64(slot))
+            let life = min(2.4 - 0.6 * strength + .random(in: 0...0.8, using: &random), period - 0.3)
+            guard age < life else { continue }
+            let start = windward > 0
+                ? size.width * .random(in: -0.1...0.2, using: &random)
+                : size.width * .random(in: 0.8...1.1, using: &random)
+            let height = size.height * .random(in: 0.12...0.82, using: &random)
+            let ripple = size.height * .random(in: 0.006...0.018, using: &random)
+            let wavelength = size.width * .random(in: 0.35...0.65, using: &random)
+            let phase = Double.random(in: 0...(2 * .pi), using: &random)
+            let width = CGFloat.random(in: 0.9...1.8, using: &random)
+            let curls = Double.random(in: 0...1, using: &random) < 0.6
+            let loop = size.height * .random(in: 0.012...0.022, using: &random)
+            // The loop starts where the head reaches the first half of the screen, from the windward side.
+            let curlX = windward > 0 ? size.width * .random(in: 0.2...0.45, using: &random) : size.width * .random(in: 0.55...0.8, using: &random)
+            let curlStart = max(Double((curlX - start) * windward / speed), 0.35)
+            let curlSpan = 0.45
+
+            func point(_ t: Double) -> CGPoint {
+                var x = start + windward * speed * t
+                var y = height + ripple * sin(2 * .pi * (x - start) / wavelength + phase)
+                if curls {
+                    let k = min(max((t - curlStart) / curlSpan, 0), 1)
+                    let theta = 2 * .pi * k * k * (3 - 2 * k)
+                    // The loop runs back against the travel so the trail closes on itself, then carries on.
+                    x += windward * (loop * sin(theta) - speed * curlSpan * 0.75 * k)
+                    y -= loop * (1 - cos(theta))
+                }
+                return CGPoint(x: x, y: y)
+            }
+
+            let fade = min(age / (0.2 * life), 1) * min((life - age) / (0.3 * life), 1)
+            var previous = point(max(age - trail, 0))
+            for step in 1...steps {
+                let along = Double(step) / Double(steps)
+                let next = point(max(age - trail + trail * along, 0))
+                // Thin and faint at both ends, fullest just behind the head.
+                let taper = sin(.pi * pow(along, 0.7))
+                var segment = Path()
+                segment.move(to: previous)
+                segment.addLine(to: next)
+                context.stroke(
+                    segment, with: .color(.white.opacity(0.32 * brightness * fade * taper)),
+                    style: StrokeStyle(lineWidth: width * (0.4 + 0.8 * taper), lineCap: .round)
+                )
+                previous = next
+            }
+        }
     }
 
     /// Layered haze: by day a pale sun disc shows through, then three depths of very soft bands drift at

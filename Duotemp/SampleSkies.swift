@@ -25,6 +25,8 @@ enum SampleSkies {
         var latitude = 53.35
         var longitude = -6.26
         var alerts: [ActiveAlert] = []
+        /// The sky to draw when `symbol` is one the sky can't (wind).
+        var sky: String? = nil
     }
 
     /// Shows the alert badge and the alert card with two alerts; the link is the agency's public warnings page.
@@ -57,6 +59,7 @@ enum SampleSkies {
         Sky(id: "snow", name: "Snow", condition: "Light Snow", symbol: "cloud.snow", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -1, rainMM: 0.8, rainChance: 0.7, windSpeed: 1, windFrom: 0),
         Sky(id: "heavy-snow", name: "Heavy Snow", condition: "Heavy Snow", symbol: "snowflake", isDaylight: true, sunProgress: 0.5, sunElevation: 12, celsius: -3, rainMM: 3, rainChance: 0.95, windSpeed: 11, windFrom: 70),
         Sky(id: "fog", name: "Fog", condition: "Fog", symbol: "cloud.fog", isDaylight: true, sunProgress: 0.25, sunElevation: 9, celsius: 6),
+        Sky(id: "windy", name: "Windy", condition: "Windy", symbol: "wind", isDaylight: true, sunProgress: 0.4, sunElevation: 22, celsius: 12, windSpeed: 13, windFrom: 270, sky: "cloud.sun"),
     ]
 
     /// App Store screenshots: real cities with chosen skies, shown as the main list by `-screenshotCities YES`.
@@ -181,7 +184,8 @@ enum SampleSkies {
             sunProgress: sky.sunProgress,
             sunElevation: sky.sunElevation,
             windSpeed: sky.windSpeed,
-            windFromDirection: sky.windFrom
+            windFromDirection: sky.windFrom,
+            skySymbolName: sky.sky
         )
         return WeatherSnapshot(
             placeName: sky.name,
