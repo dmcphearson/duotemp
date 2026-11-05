@@ -3,8 +3,8 @@ import Foundation
 /// MET's rain codes follow a single model run's rain amount, and outside the Nordics that model forecasts
 /// a tenth of a millimetre far more often than it rains. A MET rain code is shown only when Apple Weather's
 /// chance of rain for the same hour (or day) agrees; without Apple, only when MET's amount is at least
-/// `fallbackAmount`. Otherwise the period shows the cloud code for its cloud cover. Snow, sleet and thunder
-/// codes are never changed.
+/// `fallbackAmount`. Otherwise the period shows the cloud code for its cloud cover. Heavy rain, snow, sleet
+/// and thunder codes are never changed: a forecast downpour is shown even when Apple disagrees.
 enum RainCheck {
     /// Apple's chance of rain, 0...1, from which a MET rain code is kept.
     static let minimumChance = 0.4
@@ -32,9 +32,10 @@ enum RainCheck {
         return cloud == "cloudy" ? cloud : "\(cloud)_\(isDaylight ?? true ? "day" : "night")"
     }
 
-    /// Rain without snow, sleet or thunder, for example "lightrainshowers_day" or "heavyrain".
+    /// Light or moderate rain without snow, sleet or thunder, for example "lightrainshowers_day" or "rain".
     static func isRain(_ code: String) -> Bool {
         let base = code.split(separator: "_").first.map(String.init) ?? code
-        return base.contains("rain") && !base.contains("sleet") && !base.contains("snow") && !base.hasSuffix("andthunder")
+        return base.contains("rain") && !base.hasPrefix("heavy") && !base.contains("sleet") && !base.contains("snow")
+            && !base.hasSuffix("andthunder")
     }
 }
