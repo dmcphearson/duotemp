@@ -80,6 +80,22 @@ enum SharedStore {
             defaults.removeObject(forKey: cacheKey(source, key))
         }
         defaults.removeObject(forKey: appleDetailKey(key))
+        for source in WeatherSource.allCases {
+            defaults.removeObject(forKey: lastDetailKey(source, key))
+        }
+    }
+
+    /// The last detail loaded for a place, shown with a notice when a refresh fails.
+    static func lastDetail(source: WeatherSource, key: String) -> ForecastDetail? {
+        read(ForecastDetail.self, lastDetailKey(source, key))
+    }
+
+    static func saveLastDetail(_ detail: ForecastDetail, key: String) {
+        write(detail, lastDetailKey(detail.snapshot.source, key))
+    }
+
+    private static func lastDetailKey(_ source: WeatherSource, _ key: String) -> String {
+        "lastDetail.\(source.rawValue).\(key)"
     }
 
     /// Apple Weather's detail for a place, while it's younger than `maxAge` and the place hasn't moved more

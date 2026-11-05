@@ -126,6 +126,14 @@ final class LocationsModel {
         detail.snapshot = SharedStore.cache(detail.snapshot, key: target.key)
         snapshots[target.key] = detail.snapshot
         failed.remove(target.key)
+        SharedStore.saveLastDetail(detail, key: target.key)
+        return detail
+    }
+
+    /// The last detail loaded for the place, without hours already past, for when a refresh fails.
+    func lastDetail(for target: DetailTarget, now: Date = .now) -> ForecastDetail? {
+        guard var detail = SharedStore.lastDetail(source: source, key: target.key) else { return nil }
+        detail.hours.removeAll { $0.date.addingTimeInterval(3600) <= now }
         return detail
     }
 

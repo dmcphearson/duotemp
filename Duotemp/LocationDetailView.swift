@@ -23,6 +23,9 @@ struct LocationDetailView: View {
                     header(snapshot)
                 }
                 if let detail {
+                    if let errorMessage {
+                        staleNotice(errorMessage, fetchedAt: detail.snapshot.fetchedAt)
+                    }
                     hourlyCard(detail)
                     dailyCard(detail)
                     if AuroraOutlook.shows(latitude: target.latitude, longitude: target.longitude, forecast: kp) {
@@ -68,6 +71,10 @@ struct LocationDetailView: View {
             onLoad(loaded)
             errorMessage = nil
         } catch {
+            if detail == nil, let last = model.lastDetail(for: target) {
+                detail = last
+                onLoad(last)
+            }
             errorMessage = error.localizedDescription
         }
         await aurora
@@ -108,6 +115,19 @@ struct LocationDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .skyTextShadow()
+    }
+
+    /// Shown over the last good forecast when a refresh fails.
+    private func staleNotice(_ message: String, fetchedAt: Date) -> some View {
+        Label {
+            Text("\(message) Showing the forecast from \(fetchedAt.formatted(date: .omitted, time: .shortened)).")
+        } icon: {
+            Image(systemName: "exclamationmark.triangle")
+        }
+        .font(.footnote)
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassPanel(RoundedRectangle(cornerRadius: 14))
     }
 
     private func hourlyCard(_ detail: ForecastDetail) -> some View {
