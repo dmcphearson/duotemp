@@ -10,6 +10,37 @@ struct METForecast: Decodable, Sendable {
 
     struct Properties: Decodable, Sendable {
         let timeseries: [Step]
+        /// Steps that couldn't be read. They're dropped, so one malformed hour doesn't lose the whole forecast.
+        let skippedSteps: Int
+
+        init(timeseries: [Step], skippedSteps: Int = 0) {
+            self.timeseries = timeseries
+            self.skippedSteps = skippedSteps
+        }
+
+        init(from decoder: Decoder) throws {
+            var list = try decoder.container(keyedBy: CodingKeys.self).nestedUnkeyedContainer(forKey: .timeseries)
+            var steps: [Step] = []
+            var skipped = 0
+            while !list.isAtEnd {
+                if let step = try? list.decode(Step.self) {
+                    steps.append(step)
+                } else {
+                    // A failed decode leaves the container on the same element; this moves past it.
+                    _ = try list.decode(Skip.self)
+                    skipped += 1
+                }
+            }
+            self.init(timeseries: steps, skippedSteps: skipped)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case timeseries
+        }
+
+        private struct Skip: Decodable {
+            init(from decoder: Decoder) {}
+        }
     }
 
     struct Step: Decodable, Sendable {
@@ -123,9 +154,11 @@ enum METError: LocalizedError {
     case rateLimited
     case http(Int)
     case noData
+    case unreadable
 
     var errorDescription: String? {
         switch self {
+        case .unreadable: "MET Norway sent a forecast duoTemp couldn't read. Try again in a few minutes."
         case .rateLimited: "MET Norway is limiting requests. Try again later."
         case .http(let status): "MET Norway returned HTTP \(status)."
         case .noData: "MET Norway returned no hourly forecast."
