@@ -97,13 +97,32 @@ struct METForecast: Decodable, Sendable {
         return try decoder.decode(METForecast.self, from: data)
     }
 
-    func snapshot(placeName: String, timeZoneID: String?, fetchedAt now: Date) throws -> WeatherSnapshot {
+    /// Whether the sun is up at the forecast point; nil without coordinates.
+    func isDaylight(at date: Date) -> Bool? {
+        guard let point = geometry?.coordinates, point.count >= 2 else { return nil }
+        return Solar.isDaylight(at: date, latitude: point[1], longitude: point[0])
+    }
+
+    /// A step's 1-hour code after `RainCheck`, given Apple's chance of rain by hour.
+    func hourCode(_ step: Step, rainChances: [Date: Double]) -> String? {
+        guard let period = step.data.next1Hours else { return nil }
+        return RainCheck.code(
+            period.summary.symbolCode,
+            amount: period.details?.precipitationAmount,
+            chance: rainChances[step.time],
+            cloudCover: step.data.instant.details.cloudAreaFraction,
+            isDaylight: isDaylight(at: step.time)
+        )
+    }
+
+    /// `rainChances` is Apple's chance of rain by hour; MET rain codes are checked against it (`RainCheck`).
+    func snapshot(placeName: String, timeZoneID: String?, fetchedAt now: Date, rainChances: [Date: Double] = [:]) throws -> WeatherSnapshot {
         let steps = properties.timeseries.sorted { $0.time < $1.time }
         let point = geometry?.coordinates
 
         // Hourly steps carry next_1_hours; the long-range tail is 6-hourly and is dropped.
         let hourly: [WeatherSnapshot.Hour] = steps.compactMap { step in
-            guard let code = step.data.next1Hours?.summary.symbolCode else { return nil }
+            guard let code = hourCode(step, rainChances: rainChances) else { return nil }
             let details = step.data.instant.details
             let symbol = METSymbol(code: code, windSpeed: details.windSpeed)
             return WeatherSnapshot.Hour(
@@ -112,7 +131,7 @@ struct METForecast: Decodable, Sendable {
                 feelsLike: DualTemp(celsius: details.apparentAirTemperature ?? details.airTemperature),
                 condition: symbol.condition,
                 symbolName: symbol.symbolName,
-                isDaylight: point.flatMap { $0.count >= 2 ? Solar.isDaylight(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
+                isDaylight: isDaylight(at: step.time),
                 sunProgress: point.flatMap { $0.count >= 2 ? Solar.dayProgress(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
                 sunElevation: point.flatMap { $0.count >= 2 ? Solar.elevation(at: step.time, latitude: $0[1], longitude: $0[0]) : nil },
                 windSpeed: details.windSpeed,

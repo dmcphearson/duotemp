@@ -3,7 +3,9 @@ import Foundation
 extension METForecast {
     /// Detail-screen data: 48 hours, up to 10 days, and current conditions.
     /// Sunrise and sunset come from MET's separate Sunrise API and are added by the caller.
-    func detail(snapshot: WeatherSnapshot, now: Date) -> ForecastDetail {
+    /// Rain codes are checked (`RainCheck`) against Apple's chance of rain: `rainChances` by hour and
+    /// `dayChances` by local day.
+    func detail(snapshot: WeatherSnapshot, now: Date, rainChances: [Date: Double] = [:], dayChances: [Date: Double] = [:]) -> ForecastDetail {
         let steps = properties.timeseries.sorted { $0.time < $1.time }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = snapshot.timeZone
@@ -11,11 +13,11 @@ extension METForecast {
         let hours: [ForecastDetail.Hour] = steps
             .filter { $0.time >= snapshot.current.date }
             .compactMap { step in
-                guard let period = step.data.next1Hours else { return nil }
+                guard let period = step.data.next1Hours, let code = hourCode(step, rainChances: rainChances) else { return nil }
                 return ForecastDetail.Hour(
                     date: step.time,
                     temperature: DualTemp(celsius: step.data.instant.details.airTemperature),
-                    symbolName: METSymbol(code: period.summary.symbolCode, windSpeed: step.data.instant.details.windSpeed).symbolName,
+                    symbolName: METSymbol(code: code, windSpeed: step.data.instant.details.windSpeed).symbolName,
                     precipitationMM: period.details?.precipitationAmount,
                     precipitationChance: nil,
                     cloudCover: step.data.instant.details.cloudAreaFraction.map { $0 / 100 }
@@ -42,7 +44,16 @@ extension METForecast {
             let symbolStep = items
                 .filter { $0.data.next6Hours != nil || $0.data.next1Hours != nil }
                 .min { abs($0.time.timeIntervalSince(noon)) < abs($1.time.timeIntervalSince(noon)) }
-            let code = symbolStep?.data.next6Hours?.summary.symbolCode ?? symbolStep?.data.next1Hours?.summary.symbolCode
+            let period = symbolStep?.data.next6Hours ?? symbolStep?.data.next1Hours
+            let code = period.map { period in
+                RainCheck.code(
+                    period.summary.symbolCode,
+                    amount: period.details?.precipitationAmount,
+                    chance: dayChances.first { calendar.isDate($0.key, inSameDayAs: day) }?.value,
+                    cloudCover: symbolStep?.data.instant.details.cloudAreaFraction,
+                    isDaylight: true
+                )
+            }
 
             let isToday = day == today
             return ForecastDetail.Day(

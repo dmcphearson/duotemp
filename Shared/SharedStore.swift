@@ -131,26 +131,27 @@ enum SharedStore {
 
     private static let appleSnapshotsKey = "appleSnapshots"
 
-    /// Alerts for a Yr place while they're younger than `maxAge`, so refreshes don't each spend a WeatherKit call.
-    static func cachedAlerts(latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) -> [ActiveAlert]? {
-        guard let cached = read([String: CachedAlerts].self, alertsKey)?[coordinateKey(latitude, longitude)],
+    /// WeatherKit's alerts and chance of rain for a Yr place while younger than `maxAge`, so refreshes and
+    /// widget reloads don't each spend a WeatherKit call.
+    static func cachedExtras(latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) -> AppleExtras.Extras? {
+        guard let cached = read([String: CachedExtras].self, extrasKey)?[coordinateKey(latitude, longitude)],
               now.timeIntervalSince(cached.fetchedAt) < maxAge
         else { return nil }
-        return cached.alerts
+        return cached.extras
     }
 
-    /// Saves a place's alerts and drops entries older than `maxAge`.
-    static func cacheAlerts(_ alerts: [ActiveAlert], latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) {
-        var all = (read([String: CachedAlerts].self, alertsKey) ?? [:]).filter { now.timeIntervalSince($0.value.fetchedAt) < maxAge }
-        all[coordinateKey(latitude, longitude)] = CachedAlerts(fetchedAt: now, alerts: alerts)
-        write(all, alertsKey)
+    /// Saves a place's extras and drops entries older than `maxAge`.
+    static func cacheExtras(_ extras: AppleExtras.Extras, latitude: Double, longitude: Double, maxAge: TimeInterval, now: Date = .now) {
+        var all = (read([String: CachedExtras].self, extrasKey) ?? [:]).filter { now.timeIntervalSince($0.value.fetchedAt) < maxAge }
+        all[coordinateKey(latitude, longitude)] = CachedExtras(fetchedAt: now, extras: extras)
+        write(all, extrasKey)
     }
 
-    private static let alertsKey = "alerts"
+    private static let extrasKey = "appleExtras"
 
-    private struct CachedAlerts: Codable {
+    private struct CachedExtras: Codable {
         let fetchedAt: Date
-        let alerts: [ActiveAlert]
+        let extras: AppleExtras.Extras
     }
 
     /// Coordinates at 2 decimals (~1 km), the precision every request already uses.
