@@ -142,6 +142,17 @@ test("upstream errors pass through and are never cached", async () => {
   assert.equal((await handle(get("/aurora/noaa"), failing)).status, 502);
 });
 
+test("a MET answer that isn't JSON is refused and never cached", async () => {
+  for (const body of ['{"properties":{"timeseries":[{"time":"20', "<html>maintenance</html>"]) {
+    const cache = memoryCache();
+    const { fetchUpstream } = upstream(200, body, { "Content-Type": "application/json", Expires: "Sat, 17 Oct 2026 20:30:00 GMT" });
+    const response = await handle(get("/met/locationforecast/2.0/complete?lat=1&lon=1"), { cache, fetchUpstream, now: NOW, waitUntil: (p) => p });
+    assert.equal(response.status, 502, body);
+    assert.equal(response.headers.get("Cache-Control"), "no-store");
+    assert.equal(cache.entries.size, 0);
+  }
+});
+
 test("cache lifetime follows MET's Expires within bounds", () => {
   assert.equal(ttlFromExpires("Sat, 17 Oct 2026 20:10:00 GMT", NOW), 600);
   assert.equal(ttlFromExpires("Sat, 17 Oct 2026 19:00:00 GMT", NOW), 60);

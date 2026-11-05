@@ -15,8 +15,47 @@ enum METClient {
             .snapshot(placeName: placeName, timeZoneID: timeZoneID, fetchedAt: .now)
     }
 
+    /// An unreadable body is fetched once more past the URLCache, which would otherwise keep serving it
+    /// until its max-age, so pull to refresh couldn't recover.
     static func forecast(latitude: Double, longitude: Double) async throws -> METForecast {
-        try METForecast.decode(await get("locationforecast/2.0/complete", latitude: latitude, longitude: longitude))
+        let path = "locationforecast/2.0/complete"
+        do {
+            return try readForecast(await get(path, latitude: latitude, longitude: longitude))
+        } catch let error as DecodingError {
+            log.error("[duotemp] Error: unreadable MET forecast (\(describe(error), privacy: .public)); fetching again past the cache")
+        }
+        do {
+            return try readForecast(await get(path, latitude: latitude, longitude: longitude, reload: true))
+        } catch let error as DecodingError {
+            log.error("[duotemp] Error: MET forecast still unreadable (\(describe(error), privacy: .public))")
+            throw METError.unreadable
+        }
+    }
+
+    private static func readForecast(_ data: Data) throws -> METForecast {
+        do {
+            let forecast = try METForecast.decode(data)
+            if forecast.properties.skippedSteps > 0 {
+                log.warning("[duotemp] MET forecast: skipped \(forecast.properties.skippedSteps) unreadable steps of \(forecast.properties.timeseries.count + forecast.properties.skippedSteps)")
+            }
+            return forecast
+        } catch let error as DecodingError {
+            log.error("[duotemp] Error: MET body of \(data.count) bytes starting \(String(decoding: data.prefix(1), as: UTF8.self), privacy: .public)")
+            throw error
+        }
+    }
+
+    /// Where decoding failed and why, without any values from the body (it carries the coordinates).
+    private static func describe(_ error: DecodingError) -> String {
+        let (context, kind): (DecodingError.Context, String) = switch error {
+        case .typeMismatch(_, let context): (context, "type mismatch")
+        case .valueNotFound(_, let context): (context, "value missing")
+        case .keyNotFound(let key, let context): (context, "key \(key.stringValue) missing")
+        case .dataCorrupted(let context): (context, "not valid JSON")
+        @unknown default: (DecodingError.Context(codingPath: [], debugDescription: ""), "unknown")
+        }
+        let path = context.codingPath.map { $0.intValue.map { "[\($0)]" } ?? ".\($0.stringValue)" }.joined()
+        return "\(kind) at \(path.isEmpty ? "root" : path)"
     }
 
     /// Sunrise and sunset for the local day containing `date`; nil when the sun doesn't rise or set that day.
@@ -58,7 +97,8 @@ enum METClient {
         return formatter.date(from: text)
     }
 
-    private static func get(_ path: String, latitude: Double, longitude: Double, extra: [URLQueryItem] = []) async throws -> Data {
+    /// `reload` skips the URLCache and replaces what it holds for this request.
+    private static func get(_ path: String, latitude: Double, longitude: Double, extra: [URLQueryItem] = [], reload: Bool = false) async throws -> Data {
         let route = ProxyAccess.route()
         let base = route.map { $0.base.appending(path: "met") } ?? directURL
         guard var components = URLComponents(url: base.appending(path: path), resolvingAgainstBaseURL: false) else {
@@ -74,6 +114,7 @@ enum METClient {
         guard let url = components.url else { throw URLError(.badURL) }
 
         var request = URLRequest(url: url)
+        if reload { request.cachePolicy = .reloadIgnoringLocalCacheData }
         request.setValue(UserAgent.value, forHTTPHeaderField: "User-Agent")
         if let route { request.setValue(route.token, forHTTPHeaderField: ProxyAccess.tokenHeader) }
         let (data, response) = try await session.data(for: request)
@@ -87,7 +128,7 @@ enum METClient {
         case 401 where route != nil:
             log.error("[duotemp] Error: proxy refused the token; calling MET directly")
             ProxyAccess.tokenRejected()
-            return try await get(path, latitude: latitude, longitude: longitude, extra: extra)
+            return try await get(path, latitude: latitude, longitude: longitude, extra: extra, reload: reload)
         case 429:
             log.error("[duotemp] Error: MET rate limit (429) on \(path)")
             throw METError.rateLimited

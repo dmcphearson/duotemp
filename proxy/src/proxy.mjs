@@ -48,7 +48,7 @@ export function route(url) {
       query.set("date", date);
       query.set("offset", offset);
     }
-    return { upstream: `${MET}${path.slice("/met".length)}?${query}`, ttl: null };
+    return { upstream: `${MET}${path.slice("/met".length)}?${query}`, ttl: null, json: true };
   }
   return { error: 404, message: "not found" };
 }
@@ -139,9 +139,21 @@ async function fetchAndStore(target, key, { cache, fetchUpstream, now, waitUntil
     return new Response(upstream.body, { status: upstream.status, headers });
   }
 
+  let body = upstream.body;
+  if (target.json) {
+    // A cut-off or non-JSON answer isn't cached, so one bad body isn't served to everyone nearby until it expires.
+    body = await upstream.text();
+    try {
+      JSON.parse(body);
+    } catch {
+      console.log("[duotemp-proxy] MET sent a body that isn't JSON");
+      return json(502, "upstream sent an unreadable body");
+    }
+  }
+
   const ttl = target.ttl ?? ttlFromExpires(upstream.headers.get("Expires"), now);
   headers.set("Cache-Control", `public, max-age=${ttl}`);
-  const response = new Response(upstream.body, { status: upstream.status, headers });
+  const response = new Response(body, { status: upstream.status, headers });
   const stored = response.clone();
   if (target.stale) {
     // Kept past its lifetime so it can be served stale; the clients still get max-age=ttl.
