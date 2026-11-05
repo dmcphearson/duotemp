@@ -12,10 +12,17 @@ enum AppleWeatherClient {
         return snapshot
     }
 
-    /// Alerts alone, for places whose forecast comes from Yr.
-    static func alerts(latitude: Double, longitude: Double) async throws -> [ActiveAlert] {
+    /// Alerts and 48 hours of chance of rain, for places whose forecast comes from Yr.
+    static func extras(latitude: Double, longitude: Double) async throws -> AppleExtras.Extras {
         let location = CLLocation(approximateLatitude: latitude, longitude: longitude)
-        return activeAlerts(try await WeatherService.shared.weather(for: location, including: .alerts))
+        let now = Date()
+        let start = Calendar.current.dateInterval(of: .hour, for: now)?.start ?? now
+        let (hourly, alerts) = try await WeatherService.shared.weather(
+            for: location,
+            including: .hourly(startDate: start, endDate: start.addingTimeInterval(48 * 3600)), .alerts
+        )
+        let chances = Dictionary(hourly.forecast.map { ($0.date, $0.precipitationChance) }) { first, _ in first }
+        return AppleExtras.Extras(alerts: activeAlerts(alerts), rainChances: chances)
     }
 
     /// Nil from WeatherKit (no alert service in that country) reads as none.

@@ -25,19 +25,35 @@ enum DetailClient {
         case .yr:
             let now = Date()
             let timeZone = target.timeZoneID.flatMap(TimeZone.init(identifier:)) ?? .current
-            async let apple = try? appleDetail(for: target)
+            async let appleFetch = try? appleDetail(for: target)
             async let sun = try? METClient.sun(latitude: target.latitude, longitude: target.longitude, on: now, timeZone: timeZone)
 
             let forecast = try await METClient.forecast(latitude: target.latitude, longitude: target.longitude)
-            let snapshot = try forecast.snapshot(placeName: target.name, timeZoneID: target.timeZoneID, fetchedAt: now)
-            var detail = forecast.detail(snapshot: snapshot, now: now)
+            // Rain codes are checked against Apple's chance of rain: from the Apple detail when WeatherKit
+            // answered, else from AppleExtras, which shares its cache with the list and widgets.
+            let apple = await appleFetch
+            var rainChances = Self.chances(apple?.hours.map { ($0.date, $0.precipitationChance) } ?? [])
+            if rainChances.isEmpty {
+                rainChances = await AppleExtras.fetch(latitude: target.latitude, longitude: target.longitude)?.rainChances ?? [:]
+            }
+            let dayChances = Self.chances(apple?.days.map { ($0.date, $0.precipitationChance) } ?? [])
+            let snapshot = try forecast.snapshot(placeName: target.name, timeZoneID: target.timeZoneID, fetchedAt: now, rainChances: rainChances)
+            var detail = forecast.detail(snapshot: snapshot, now: now, rainChances: rainChances, dayChances: dayChances)
             if let sun = await sun, sun.sunrise != nil || sun.sunset != nil {
                 detail.conditions.sunrise = sun.sunrise
                 detail.conditions.sunset = sun.sunset
                 detail.sources[.sun] = .yr
             }
-            return detail.backfilled(from: await apple)
+            return detail.backfilled(from: apple)
         }
+    }
+
+    private static func chances(_ pairs: [(Date, Double?)]) -> [Date: Double] {
+        var result: [Date: Double] = [:]
+        for (date, chance) in pairs where result[date] == nil {
+            if let chance { result[date] = chance }
+        }
+        return result
     }
 
     /// Apple Weather's detail for the place, from the cache while it's fresh.
