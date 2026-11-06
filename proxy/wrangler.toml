@@ -9,7 +9,7 @@ routes = [{ pattern = "api.trough.dev", custom_domain = true }]
 # App Attest: tokens are only issued to this app ("TEAMID.bundle ID").
 APP_ID = "J479S78JUN.me.mcphearson.duotemp"
 # "log" serves requests without a valid token and logs it; "enforce" refuses them.
-ATTEST_MODE = "log"
+ATTEST_MODE = "enforce"
 
 # Counts of App Attest token status (valid, missing, invalid) and nothing else, for deciding when to enforce.
 # Read with the SQL API; see CLAUDE.md.
