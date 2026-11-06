@@ -213,7 +213,7 @@ private struct RectangularView: View {
 
             Text("Feels \(now.feelsLike.degrees(entry.lead)) · H \(snapshot.high.degrees(entry.lead)) L \(snapshot.low.degrees(entry.lead))")
                 .font(.caption2)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
