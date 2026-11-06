@@ -178,6 +178,8 @@ private struct HourColumn: View {
 
 // MARK: - Lock Screen
 
+/// Lock Screen widgets render in one tint, so hierarchy comes from size, weight and the
+/// primary, secondary and tertiary styles, not colour (#236).
 private struct RectangularView: View {
     let entry: WeatherEntry
     let snapshot: WeatherSnapshot
@@ -186,15 +188,34 @@ private struct RectangularView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 3) {
+                Image(systemName: now.symbolName)
+                    .symbolVariant(.fill)
+                    .accessibilityLabel(now.condition)
+                Text(snapshot.placeName)
+                    .lineLimit(1)
                 if entry.isCurrentLocation {
-                    Image(systemName: "location.fill").font(.system(size: 9, weight: .semibold))
+                    Image(systemName: "location.fill")
+                        .font(.system(size: 8, weight: .semibold))
+                        .accessibilityLabel("Current location")
                 }
-                Text(snapshot.placeName).font(.headline).lineLimit(1)
             }
-            Text(now.temperature.labelledPair(lead: entry.lead))
-                .font(.system(size: 20, weight: .semibold))
-            Text("Feels \(now.feelsLike.compactPair(lead: entry.lead))")
-                .font(.caption)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(now.temperature.labelled(entry.lead))
+                    .font(.system(size: 22, weight: .semibold))
+                    .widgetAccentable()
+                Text(now.temperature.labelled(entry.lead.other))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Feels \(now.feelsLike.degrees(entry.lead)) · H \(snapshot.high.degrees(entry.lead)) L \(snapshot.low.degrees(entry.lead))")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -297,6 +318,7 @@ private struct HighLow: View {
 }
 
 private struct UnavailableView: View {
+    @Environment(\.widgetFamily) private var family
     let isCurrentLocation: Bool
 
     var body: some View {
@@ -307,6 +329,6 @@ private struct UnavailableView: View {
                 .font(.caption)
                 .multilineTextAlignment(.center)
         }
-        .foregroundStyle(Theme.secondary)
+        .foregroundStyle(family == .accessoryRectangular ? AnyShapeStyle(.secondary) : AnyShapeStyle(Theme.secondary))
     }
 }
