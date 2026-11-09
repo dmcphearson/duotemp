@@ -115,3 +115,36 @@ struct ForecastDetail: Codable, Sendable {
         return result
     }
 }
+
+extension ForecastDetail {
+    /// Stand-in shown redacted while the real detail loads, so the cards keep their layout. Shaped from the
+    /// place's snapshot; none of its values are shown.
+    static func placeholder(for snapshot: WeatherSnapshot) -> ForecastDetail {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = snapshot.timeZone
+        let today = calendar.startOfDay(for: snapshot.current.date)
+        let hours = (0..<24).map { index in
+            Hour(
+                date: snapshot.current.date.addingTimeInterval(Double(index) * 3600),
+                temperature: snapshot.current.temperature,
+                symbolName: snapshot.current.symbolName,
+                precipitationMM: nil
+            )
+        }
+        let days = (0..<10).map { index in
+            Day(
+                date: calendar.date(byAdding: .day, value: index, to: today) ?? today,
+                symbolName: snapshot.current.symbolName,
+                high: snapshot.high,
+                low: snapshot.low,
+                precipitationMM: nil
+            )
+        }
+        let conditions = Conditions(
+            windSpeed: 5, windDirection: 0, humidity: 0.5, uvIndex: 1, pressure: 1013,
+            dewPoint: snapshot.low, visibility: 10_000,
+            sunrise: today.addingTimeInterval(7 * 3600), sunset: today.addingTimeInterval(19 * 3600)
+        )
+        return ForecastDetail(snapshot: snapshot, hours: hours, days: days, conditions: conditions, sources: [:])
+    }
+}

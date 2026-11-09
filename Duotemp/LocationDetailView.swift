@@ -10,6 +10,7 @@ struct LocationDetailView: View {
     @State private var errorMessage: String?
     @State private var kp: KpForecast?
     @State private var kpFailed = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var lead: LeadUnit { model.lead }
 
@@ -34,6 +35,8 @@ struct LocationDetailView: View {
                     conditionsGrid(detail)
                 } else if let errorMessage {
                     ContentUnavailableView("Forecast unavailable", systemImage: "icloud.slash", description: Text(errorMessage))
+                } else if let snapshot = model.snapshots[target.key] {
+                    loadingCards(.placeholder(for: snapshot))
                 } else {
                     ProgressView()
                         .padding(.top, 40)
@@ -108,13 +111,38 @@ struct LocationDetailView: View {
             .font(.title3.weight(.semibold))
             Text("Feels \(now.feelsLike.pair(lead: lead))")
                 .font(.headline)
-            Text("H \(snapshot.high.pair(lead: lead))   L \(snapshot.low.pair(lead: lead))")
-                .font(.subheadline)
-                .foregroundStyle(SkyStyle.secondary)
+            // H and L stack rather than break apart when large text doesn't fit them side by side.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) { highText(snapshot); lowText(snapshot) }
+                VStack(spacing: 2) { highText(snapshot); lowText(snapshot) }
+            }
+            .font(.subheadline)
+            .foregroundStyle(SkyStyle.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .skyTextShadow()
+    }
+
+    /// The cards in their loading state, redacted and inert, so the layout doesn't jump when the detail arrives.
+    private func loadingCards(_ placeholder: ForecastDetail) -> some View {
+        VStack(spacing: 16) {
+            hourlyCard(placeholder)
+            dailyCard(placeholder)
+            conditionsGrid(placeholder)
+        }
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading forecast")
+    }
+
+    private func highText(_ snapshot: WeatherSnapshot) -> some View {
+        Text("H \(snapshot.high.pair(lead: lead))").fixedSize()
+    }
+
+    private func lowText(_ snapshot: WeatherSnapshot) -> some View {
+        Text("L \(snapshot.low.pair(lead: lead))").fixedSize()
     }
 
     /// Shown over the last good forecast when a refresh fails.
@@ -173,23 +201,43 @@ struct LocationDetailView: View {
     private func dailyCard(_ detail: ForecastDetail) -> some View {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = detail.snapshot.timeZone
-        return Card(title: "\(detail.days.count)-day forecast") {
+        return Card(title: "Daily forecast") {
             VStack(spacing: 0) {
                 ForEach(Array(detail.days.enumerated()), id: \.element.id) { index, day in
                     if index > 0 { Divider().overlay(SkyStyle.secondary.opacity(0.2)) }
-                    HStack(spacing: 10) {
-                        Text(calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone)))
-                            .font(.body.weight(.semibold))
-                            .frame(width: 56, alignment: .leading)
-                        WeatherSymbol(name: day.symbolName, size: 18)
-                            .frame(width: 28)
-                        RainLabel(chance: day.precipitationChance, millimetres: day.precipitationMM, lead: lead, compact: true)
-                            .frame(width: 64, alignment: .leading)
-                        Spacer(minLength: 0)
-                        Text("L \(day.low.compactPair(lead: lead))")
-                            .foregroundStyle(SkyStyle.secondary)
-                        Text("H \(day.high.compactPair(lead: lead))")
-                            .fontWeight(.semibold)
+                    let name = calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone))
+                    let rain = RainLabel(chance: day.precipitationChance, millimetres: day.precipitationMM, lead: lead, compact: true)
+                    let low = Text("L \(day.low.compactPair(lead: lead))").foregroundStyle(SkyStyle.secondary)
+                    let high = Text("H \(day.high.compactPair(lead: lead))").fontWeight(.semibold)
+                    Group {
+                        if typeSize.isAccessibilitySize {
+                            // Large text: the day on one line and its temperatures below, stacked further when they still don't fit.
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 10) {
+                                    Text(name).font(.body.weight(.semibold))
+                                    WeatherSymbol(name: day.symbolName, size: 18)
+                                    rain
+                                }
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: 12) { low; high }
+                                    VStack(alignment: .leading, spacing: 2) { low; high }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            HStack(spacing: 10) {
+                                Text(name)
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 56, alignment: .leading)
+                                WeatherSymbol(name: day.symbolName, size: 18)
+                                    .frame(width: 28)
+                                rain
+                                    .frame(width: 64, alignment: .leading)
+                                Spacer(minLength: 0)
+                                low
+                                high
+                            }
+                        }
                     }
                     .font(.subheadline)
                     .lineLimit(1)

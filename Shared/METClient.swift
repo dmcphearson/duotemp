@@ -10,11 +10,16 @@ import OSLog
 enum METClient {
     private static let log = Logger(subsystem: "me.mcphearson.duotemp", category: "MET")
 
-    /// Rain codes are checked against Apple's chance of rain (`AppleExtras`, `RainCheck`), fetched alongside.
+    /// Rain codes are checked against Apple's chance of rain (`AppleExtras`, `RainCheck`), fetched alongside
+    /// with the place's alerts.
     static func snapshot(latitude: Double, longitude: Double, placeName: String, timeZoneID: String?) async throws -> WeatherSnapshot {
         async let extras = AppleExtras.fetch(latitude: latitude, longitude: longitude)
         let forecast = try await forecast(latitude: latitude, longitude: longitude)
-        return try await forecast.snapshot(placeName: placeName, timeZoneID: timeZoneID, fetchedAt: .now, rainChances: extras?.rainChances ?? [:])
+        let fetched = await extras
+        var snapshot = try forecast.snapshot(placeName: placeName, timeZoneID: timeZoneID, fetchedAt: .now, rainChances: fetched?.rainChances ?? [:])
+        // The same request carries the place's alerts, so the list and widgets get them without another call.
+        snapshot.alerts = fetched?.alerts
+        return snapshot
     }
 
     /// An unreadable body is fetched once more past the URLCache, which would otherwise keep serving it

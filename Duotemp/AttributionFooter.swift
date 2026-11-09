@@ -35,6 +35,8 @@ struct AttributionFooter: View {
                         Image(systemName: "chevron.down")
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
                     }
+                    // Never broken mid-word; the credit beside it wraps instead.
+                    .fixedSize()
                 }
                 .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
             }
@@ -63,6 +65,8 @@ struct AttributionFooter: View {
             }
         }
         .font(.footnote)
+        // A bar pinned over the content: capped so the largest text sizes don't let it cover the screen.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .foregroundStyle(Theme.secondary)
         .padding(.horizontal, 4)
         .task(id: usesApple) {

@@ -20,6 +20,7 @@ struct LocationRow: View {
 
     @State private var nameFrame: CGRect?
     @State private var temperatureFrame: CGRect?
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var openSpace: CGRect? {
         guard let nameFrame, let temperatureFrame, temperatureFrame.minX > nameFrame.maxX else { return nil }
@@ -96,9 +97,14 @@ struct LocationRow: View {
         }
     }
 
+    /// At accessibility text sizes the H/L line moves under the conditions, so neither side truncates.
     private func footer(_ snapshot: WeatherSnapshot) -> some View {
         let now = snapshot.now(at: .now)
-        return HStack(alignment: .lastTextBaseline) {
+        let large = typeSize.isAccessibilitySize
+        let layout = large
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .lastTextBaseline))
+        return layout {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     WeatherSymbol(name: now.symbolName, size: 14)
@@ -108,8 +114,8 @@ struct LocationRow: View {
                 Text("Feels \(now.feelsLike.pair(lead: lead))")
                     .font(.footnote.weight(.semibold))
             }
-            Spacer(minLength: 8)
-            VStack(alignment: .trailing, spacing: 2) {
+            if !large { Spacer(minLength: 8) }
+            VStack(alignment: large ? .leading : .trailing, spacing: 2) {
                 if failed {
                     Text("Couldn't refresh")
                         .font(.caption2)
@@ -119,7 +125,7 @@ struct LocationRow: View {
                     .font(.footnote.weight(.semibold))
             }
         }
-        .lineLimit(1)
+        .lineLimit(large ? 2 : 1)
         .minimumScaleFactor(0.85)
     }
 

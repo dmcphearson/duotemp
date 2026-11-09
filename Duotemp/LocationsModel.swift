@@ -76,14 +76,8 @@ final class LocationsModel {
         await withTaskGroup(of: (String, WeatherSnapshot?).self) { group in
             for job in jobs {
                 group.addTask {
-                    guard var snapshot = try? await source.snapshot(latitude: job.latitude, longitude: job.longitude, placeName: job.name, timeZoneID: job.timeZoneID) else {
-                        return (job.key, nil)
-                    }
-                    // Apple snapshots carry their alerts. A Yr snapshot fetched AppleExtras for its chance of rain,
-                    // so its alerts come from that cache; asking alongside would spend a second WeatherKit call.
-                    if snapshot.alerts == nil, source == .yr {
-                        snapshot.alerts = await AppleExtras.fetch(latitude: job.latitude, longitude: job.longitude)?.alerts
-                    }
+                    // Both sources' snapshots carry their alerts.
+                    let snapshot = try? await source.snapshot(latitude: job.latitude, longitude: job.longitude, placeName: job.name, timeZoneID: job.timeZoneID)
                     return (job.key, snapshot)
                 }
             }

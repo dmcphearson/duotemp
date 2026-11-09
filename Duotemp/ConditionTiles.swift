@@ -7,13 +7,16 @@ struct ConditionTile<Graphic: View>: View {
     let value: String
     var caption: String?
     @ViewBuilder let graphic: Graphic
+    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title.uppercased(), systemImage: symbol)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(SkyStyle.secondary)
+            // Drawn graphics ignore redaction, so a placeholder tile hides them rather than show made-up values.
             graphic
+                .opacity(redactionReasons.contains(.placeholder) ? 0 : 1)
                 .frame(maxWidth: .infinity, minHeight: 78)
             Text(value)
                 .font(.subheadline.weight(.semibold))
@@ -287,7 +290,8 @@ struct DaylightArc: View {
             let noon = sunrise.addingTimeInterval(sunset.timeIntervalSince(sunrise) / 2)
             let horizon = cos(Double.pi * sunset.timeIntervalSince(sunrise) / day)
 
-            let amplitude = size.height / 2 - 6
+            // Leaves room for the sun's 9 pt glow at the peak and trough; Canvas clips to its bounds.
+            let amplitude = size.height / 2 - 10
             func point(_ seconds: Double) -> CGPoint {
                 let phase = 2 * Double.pi * (dayStart.addingTimeInterval(seconds).timeIntervalSince(noon)) / day
                 return CGPoint(x: size.width * seconds / day, y: size.height / 2 - cos(phase) * amplitude)
