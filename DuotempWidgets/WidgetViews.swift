@@ -68,7 +68,7 @@ private struct SmallView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
+            PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation, alert: snapshot.alerts?.bySeverity.first?.severity)
             Spacer(minLength: 0)
             BigTemps(temperature: now.temperature, lead: entry.lead)
             Spacer(minLength: 0)
@@ -90,7 +90,7 @@ private struct MediumView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
-                    PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation)
+                    PlaceName(name: snapshot.placeName, isCurrent: entry.isCurrentLocation, alert: snapshot.alerts?.bySeverity.first?.severity)
                     BigTemps(temperature: now.temperature, lead: entry.lead, leadSize: 40, trailSize: 24)
                 }
                 .layoutPriority(1)
@@ -198,6 +198,12 @@ private struct RectangularView: View {
                         .font(.system(size: 8, weight: .semibold))
                         .accessibilityLabel("Current location")
                 }
+                // The Lock Screen tints everything one colour, so the triangle alone marks an alert.
+                if let alert = snapshot.alerts?.bySeverity.first {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.primary)
+                        .accessibilityLabel([alert.severity.label, "weather alert"].compactMap { $0 }.joined(separator: " "))
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -242,6 +248,8 @@ private struct CircularView: View {
 private struct PlaceName: View {
     let name: String
     let isCurrent: Bool
+    /// The most severe active alert, badged as in the app's list; the widget opens the place, where the alert card is.
+    var alert: ActiveAlert.Severity?
 
     var body: some View {
         HStack(spacing: 4) {
@@ -253,6 +261,10 @@ private struct PlaceName: View {
                 Image(systemName: "location.fill")
                     .font(.system(size: 10, weight: .semibold))
                     .accessibilityLabel("Current location")
+            }
+            if let alert {
+                AlertBadge(severity: alert)
+                    .font(.system(size: 13, weight: .semibold))
             }
         }
     }
