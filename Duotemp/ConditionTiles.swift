@@ -7,13 +7,16 @@ struct ConditionTile<Graphic: View>: View {
     let value: String
     var caption: String?
     @ViewBuilder let graphic: Graphic
+    @Environment(\.redactionReasons) private var redactionReasons
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(title.uppercased(), systemImage: symbol)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(SkyStyle.secondary)
+            // Drawn graphics ignore redaction, so a placeholder tile hides them rather than show made-up values.
             graphic
+                .opacity(redactionReasons.contains(.placeholder) ? 0 : 1)
                 .frame(maxWidth: .infinity, minHeight: 78)
             Text(value)
                 .font(.subheadline.weight(.semibold))

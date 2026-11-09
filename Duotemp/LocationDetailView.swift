@@ -34,6 +34,8 @@ struct LocationDetailView: View {
                     conditionsGrid(detail)
                 } else if let errorMessage {
                     ContentUnavailableView("Forecast unavailable", systemImage: "icloud.slash", description: Text(errorMessage))
+                } else if let snapshot = model.snapshots[target.key] {
+                    loadingCards(.placeholder(for: snapshot))
                 } else {
                     ProgressView()
                         .padding(.top, 40)
@@ -115,6 +117,19 @@ struct LocationDetailView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .skyTextShadow()
+    }
+
+    /// The cards in their loading state, redacted and inert, so the layout doesn't jump when the detail arrives.
+    private func loadingCards(_ placeholder: ForecastDetail) -> some View {
+        VStack(spacing: 16) {
+            hourlyCard(placeholder)
+            dailyCard(placeholder)
+            conditionsGrid(placeholder)
+        }
+        .redacted(reason: .placeholder)
+        .allowsHitTesting(false)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Loading forecast")
     }
 
     /// Shown over the last good forecast when a refresh fails.
