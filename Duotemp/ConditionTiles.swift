@@ -287,7 +287,8 @@ struct DaylightArc: View {
             let noon = sunrise.addingTimeInterval(sunset.timeIntervalSince(sunrise) / 2)
             let horizon = cos(Double.pi * sunset.timeIntervalSince(sunrise) / day)
 
-            let amplitude = size.height / 2 - 6
+            // Leaves room for the sun's 9 pt glow at the peak and trough; Canvas clips to its bounds.
+            let amplitude = size.height / 2 - 10
             func point(_ seconds: Double) -> CGPoint {
                 let phase = 2 * Double.pi * (dayStart.addingTimeInterval(seconds).timeIntervalSince(noon)) / day
                 return CGPoint(x: size.width * seconds / day, y: size.height / 2 - cos(phase) * amplitude)
