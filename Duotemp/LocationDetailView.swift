@@ -173,7 +173,7 @@ struct LocationDetailView: View {
     private func dailyCard(_ detail: ForecastDetail) -> some View {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = detail.snapshot.timeZone
-        return Card(title: "\(detail.days.count)-day forecast") {
+        return Card(title: "Daily forecast") {
             VStack(spacing: 0) {
                 ForEach(Array(detail.days.enumerated()), id: \.element.id) { index, day in
                     if index > 0 { Divider().overlay(SkyStyle.secondary.opacity(0.2)) }
