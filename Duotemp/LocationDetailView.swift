@@ -10,6 +10,7 @@ struct LocationDetailView: View {
     @State private var errorMessage: String?
     @State private var kp: KpForecast?
     @State private var kpFailed = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var lead: LeadUnit { model.lead }
 
@@ -192,19 +193,39 @@ struct LocationDetailView: View {
             VStack(spacing: 0) {
                 ForEach(Array(detail.days.enumerated()), id: \.element.id) { index, day in
                     if index > 0 { Divider().overlay(SkyStyle.secondary.opacity(0.2)) }
-                    HStack(spacing: 10) {
-                        Text(calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone)))
-                            .font(.body.weight(.semibold))
-                            .frame(width: 56, alignment: .leading)
-                        WeatherSymbol(name: day.symbolName, size: 18)
-                            .frame(width: 28)
-                        RainLabel(chance: day.precipitationChance, millimetres: day.precipitationMM, lead: lead, compact: true)
-                            .frame(width: 64, alignment: .leading)
-                        Spacer(minLength: 0)
-                        Text("L \(day.low.compactPair(lead: lead))")
-                            .foregroundStyle(SkyStyle.secondary)
-                        Text("H \(day.high.compactPair(lead: lead))")
-                            .fontWeight(.semibold)
+                    let name = calendar.isDateInToday(day.date) ? "Today" : day.date.formatted(weekdayStyle(detail.snapshot.timeZone))
+                    let rain = RainLabel(chance: day.precipitationChance, millimetres: day.precipitationMM, lead: lead, compact: true)
+                    let low = Text("L \(day.low.compactPair(lead: lead))").foregroundStyle(SkyStyle.secondary)
+                    let high = Text("H \(day.high.compactPair(lead: lead))").fontWeight(.semibold)
+                    Group {
+                        if typeSize.isAccessibilitySize {
+                            // Large text: the day on one line and its temperatures below, stacked further when they still don't fit.
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack(spacing: 10) {
+                                    Text(name).font(.body.weight(.semibold))
+                                    WeatherSymbol(name: day.symbolName, size: 18)
+                                    rain
+                                }
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: 12) { low; high }
+                                    VStack(alignment: .leading, spacing: 2) { low; high }
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        } else {
+                            HStack(spacing: 10) {
+                                Text(name)
+                                    .font(.body.weight(.semibold))
+                                    .frame(width: 56, alignment: .leading)
+                                WeatherSymbol(name: day.symbolName, size: 18)
+                                    .frame(width: 28)
+                                rain
+                                    .frame(width: 64, alignment: .leading)
+                                Spacer(minLength: 0)
+                                low
+                                high
+                            }
+                        }
                     }
                     .font(.subheadline)
                     .lineLimit(1)
