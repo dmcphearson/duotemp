@@ -111,9 +111,13 @@ struct LocationDetailView: View {
             .font(.title3.weight(.semibold))
             Text("Feels \(now.feelsLike.pair(lead: lead))")
                 .font(.headline)
-            Text("H \(snapshot.high.pair(lead: lead))   L \(snapshot.low.pair(lead: lead))")
-                .font(.subheadline)
-                .foregroundStyle(SkyStyle.secondary)
+            // H and L stack rather than break apart when large text doesn't fit them side by side.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 14) { highText(snapshot); lowText(snapshot) }
+                VStack(spacing: 2) { highText(snapshot); lowText(snapshot) }
+            }
+            .font(.subheadline)
+            .foregroundStyle(SkyStyle.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -131,6 +135,14 @@ struct LocationDetailView: View {
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Loading forecast")
+    }
+
+    private func highText(_ snapshot: WeatherSnapshot) -> some View {
+        Text("H \(snapshot.high.pair(lead: lead))").fixedSize()
+    }
+
+    private func lowText(_ snapshot: WeatherSnapshot) -> some View {
+        Text("L \(snapshot.low.pair(lead: lead))").fixedSize()
     }
 
     /// Shown over the last good forecast when a refresh fails.
